@@ -31,6 +31,20 @@ void prepareCatalogTuple(const string name, const string filename, void *buffer,
 	*tuple_size = offset;
 }
 
+void writeTo(void* ptr, int offset, void* tuple) {
+	memcpy ((char *) ptr +offset, tuple, sizeof(short));
+}
+void writeTo(void* ptr, int offset, positive_twobytes value) {
+	memcpy ((char *) ptr +offset, &value, sizeof(short));
+}
+
+void readFrom(void* ptr, int offset, positive_twobytes value) {
+	memcpy (&value, (char *) ptr +offset, sizeof(short));
+}
+
+void readFrom(void* ptr, int offset, void* value) {
+	memcpy (value, (char *) ptr +offset, sizeof(short));
+}
 RM::RM() {
 
 	fileManager = PF_Manager::Instance();
@@ -44,14 +58,28 @@ RM::RM() {
 		int tuple_size = 0;
 		void *tuple = malloc(100);
 		prepareCatalogTuple("Catalog", catalog_file_name, tuple, &tuple_size);
-
-		void *buffer = malloc(PF_PAGE_SIZE);
 		int free_space = PF_PAGE_SIZE - tuple_size-8;
+		void *buffer = malloc(PF_PAGE_SIZE);
+
 		memcpy((char *) buffer, tuple, tuple_size);
 
-		unsigned short total_entry = 1;
+		int offset = PF_PAGE_SIZE;
+
+		writeTo(buffer, offset - sizeof(short) - sizeof(int),(positive_twobytes)0);
+		writeTo(buffer, offset - sizeof(int) - sizeof(int),tuple_size);
+
+		prepareCatalogTuple("Column", column_file_name, tuple, &tuple_size);
+
+		readFrom(buffer,offset-sizeof(int) - sizeof(int), &offset);
+		cout<<offset <<endl;
+		writeTo(buffer,offset,tuple);
+
+		writeTo(buffer, offset - sizeof(short) - sizeof(int),(positive);
+				writeTo(buffer, offset - sizeof(int) - sizeof(int),tuple_size);
+		unsigned short total_entry = 2;
 
 		cout << total_entry << endl;
+
 		memcpy((char *) buffer + PF_PAGE_SIZE - sizeof(short), &total_entry,
 				sizeof(short));
 
@@ -67,6 +95,8 @@ RM::RM() {
 				(char *) buffer + PF_PAGE_SIZE - sizeof(short) - sizeof(short)
 						- sizeof(short) - sizeof(short), &tuple_size,
 				sizeof(short));
+
+
 		catalogHandle.WritePage(0, buffer);
 		fileManager->CloseFile(catalogHandle);
 	}
