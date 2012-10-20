@@ -217,7 +217,7 @@ int PFTest_3(PF_Manager *pf) {
 	return 0;
 }
 
-int main() {
+/*int main() {
 	PF_Manager *pf = PF_Manager::Instance();
 	remove("test");
 
@@ -226,4 +226,4 @@ int main() {
 	//PFTest_3(pf);
 
 	return 0;
-}
+}*/
