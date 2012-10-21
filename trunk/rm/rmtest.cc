@@ -19,21 +19,21 @@ const int success = 0;
 void prepareTuple(const int name_length, const string name, const int age, const float height, const int salary, void *buffer, int *tuple_size)
 {
     int offset = 0;
-    
+
     memcpy((char *)buffer + offset, &name_length, sizeof(int));
-    offset += sizeof(int);    
+    offset += sizeof(int);
     memcpy((char *)buffer + offset, name.c_str(), name_length);
     offset += name_length;
-    
+
     memcpy((char *)buffer + offset, &age, sizeof(int));
     offset += sizeof(int);
-    
+
     memcpy((char *)buffer + offset, &height, sizeof(float));
     offset += sizeof(float);
-    
+
     memcpy((char *)buffer + offset, &salary, sizeof(int));
     offset += sizeof(int);
-    
+
     *tuple_size = offset;
 }
 
@@ -43,34 +43,34 @@ void printTuple(const void *buffer, const int tuple_size)
 {
     int offset = 0;
     cout << "****Printing Buffer: Start****" << endl;
-   
-    int name_length = 0;     
+
+    int name_length = 0;
     memcpy(&name_length, (char *)buffer+offset, sizeof(int));
     offset += sizeof(int);
     cout << "name_length: " << name_length << endl;
-   
+
     char *name = (char *)malloc(100);
     memcpy(name, (char *)buffer+offset, name_length);
     name[name_length] = '\0';
     offset += name_length;
     cout << "name: " << name << endl;
-    
-    int age = 0; 
+
+    int age = 0;
     memcpy(&age, (char *)buffer+offset, sizeof(int));
     offset += sizeof(int);
     cout << "age: " << age << endl;
-   
-    float height = 0.0; 
+
+    float height = 0.0;
     memcpy(&height, (char *)buffer+offset, sizeof(float));
     offset += sizeof(float);
     cout << "height: " << height << endl;
-       
-    int salary = 0; 
+
+    int salary = 0;
     memcpy(&salary, (char *)buffer+offset, sizeof(int));
     offset += sizeof(int);
     cout << "salary: " << salary << endl;
 
-    cout << "****Printing Buffer: End****" << endl << endl;    
+    cout << "****Printing Buffer: End****" << endl << endl;
 }
 
 
@@ -78,7 +78,7 @@ void printTuple(const void *buffer, const int tuple_size)
 void createTable(const string tablename)
 {
     cout << "****Create Table " << tablename << " ****" << endl;
-    
+
     // 1. Create Table ** -- made separate now.
     vector<Attribute> attrs;
 
@@ -137,10 +137,10 @@ void secA_1(const string tablename, const int name_length, const string name, co
     // 1. Create Table ** -- made separate now.
     // 2. Insert Tuple **
     // 3. Read Tuple **
-    // NOTE: "**" signifies the new functions being tested in this test case. 
+    // NOTE: "**" signifies the new functions being tested in this test case.
     cout << "****In Test Case 1****" << endl;
-   
-    RID rid; 
+
+    RID rid;
     int tuple_size = 0;
     void *tuple = malloc(100);
     void *data_returned = malloc(100);
@@ -151,7 +151,7 @@ void secA_1(const string tablename, const int name_length, const string name, co
     printTuple(tuple, tuple_size);
     RC rc = rm->insertTuple(tablename, tuple, rid);
     assert(rc == success);
-    
+
     // Given the rid, read the tuple from table
     rc = rm->readTuple(tablename, rid, data_returned);
     assert(rc == success);
@@ -182,13 +182,13 @@ void secA_2(const string tablename, const int name_length, const string name, co
     // 2. Delete Tuple **
     // 3. Read Tuple
     cout << "****In Test Case 2****" << endl;
-   
-    RID rid; 
+
+    RID rid;
     int tuple_size = 0;
     void *tuple = malloc(100);
     void *data_returned = malloc(100);
 
-    // Test Insert the Tuple    
+    // Test Insert the Tuple
     prepareTuple(name_length, name, age, height, salary, tuple, &tuple_size);
     cout << "Insert Data:" << endl;
     printTuple(tuple, tuple_size);
@@ -205,17 +205,17 @@ void secA_2(const string tablename, const int name_length, const string name, co
     assert(rc != success);
 
     cout << "After Deletion." << endl;
-    
+
     // Compare the two memory blocks to see whether they are different
     if (memcmp(tuple, data_returned, tuple_size) != 0)
-    {   
+    {
         cout << "****Test case 2 passed****" << endl << endl;
     }
     else
     {
         cout << "****Test case 2 failed****" << endl << endl;
     }
-        
+
     free(tuple);
     free(data_returned);
     return;
@@ -225,19 +225,19 @@ void secA_2(const string tablename, const int name_length, const string name, co
 void secA_3(const string tablename, const int name_length, const string name, const int age, const float height, const int salary)
 {
     // Functions Tested
-    // 1. Insert Tuple    
+    // 1. Insert Tuple
     // 2. Update Tuple **
     // 3. Read Tuple
     cout << "****In Test Case 3****" << endl;
-   
-    RID rid; 
+
+    RID rid;
     int tuple_size = 0;
     int tuple_size_updated = 0;
     void *tuple = malloc(100);
     void *tuple_updated = malloc(100);
     void *data_returned = malloc(100);
-   
-    // Test Insert Tuple 
+
+    // Test Insert Tuple
     prepareTuple(name_length, name, age, height, salary, tuple, &tuple_size);
     RC rc = rm->insertTuple(tablename, tuple, rid);
     assert(rc == success);
@@ -249,13 +249,13 @@ void secA_3(const string tablename, const int name_length, const string name, co
     assert(rc == success);
     cout << "Updated RID slot = " << rid.slotNum << endl;
 
-    // Test Read Tuple 
+    // Test Read Tuple
     rc = rm->readTuple(tablename, rid, data_returned);
     assert(rc == success);
     cout << "Read RID slot = " << rid.slotNum << endl;
-   
-    // Print the tuples 
-    cout << "Insert Data:" << endl; 
+
+    // Print the tuples
+    cout << "Insert Data:" << endl;
     printTuple(tuple, tuple_size);
 
     cout << "Updated data:" << endl;
@@ -263,7 +263,7 @@ void secA_3(const string tablename, const int name_length, const string name, co
 
     cout << "Returned Data:" << endl;
     printTuple(data_returned, tuple_size_updated);
-    
+
     if (memcmp(tuple_updated, data_returned, tuple_size_updated) == 0)
     {
         cout << "****Test case 3 passed****" << endl << endl;
@@ -286,13 +286,13 @@ void secA_4(const string tablename, const int name_length, const string name, co
     // 1. Insert tuple
     // 2. Read Attributes **
     cout << "****In Test Case 4****" << endl;
-    
-    RID rid;    
+
+    RID rid;
     int tuple_size = 0;
     void *tuple = malloc(100);
     void *data_returned = malloc(100);
-    
-    // Test Insert Tuple 
+
+    // Test Insert Tuple
     prepareTuple(name_length, name, age, height, salary, tuple, &tuple_size);
     RC rc = rm->insertTuple(tablename, tuple, rid);
     assert(rc == success);
@@ -300,7 +300,7 @@ void secA_4(const string tablename, const int name_length, const string name, co
     // Test Read Attribute
     rc = rm->readAttribute(tablename, rid, "Salary", data_returned);
     assert(rc == success);
- 
+
     cout << "Salary: " << *(int *)data_returned << endl;
     if (memcmp((char *)data_returned, (char *)tuple+18, 4) != 0)
     {
@@ -310,7 +310,7 @@ void secA_4(const string tablename, const int name_length, const string name, co
     {
         cout << "****Test case 4 passed" << endl << endl;
     }
-    
+
     free(tuple);
     free(data_returned);
     return;
@@ -325,14 +325,14 @@ void secA_5(const string tablename, const int name_length, const string name, co
     // 2. Delete Tuples **
     // 3. Read Tuple
     cout << "****In Test Case 5****" << endl;
-    
+
     RID rid;
     int tuple_size = 0;
     void *tuple = malloc(100);
     void *data_returned = malloc(100);
     void *data_returned1 = malloc(100);
-   
-    // Test Insert Tuple 
+
+    // Test Insert Tuple
     prepareTuple(name_length, name, age, height, salary, tuple, &tuple_size);
     RC rc = rm->insertTuple(tablename, tuple, rid);
     assert(rc == success);
@@ -347,13 +347,13 @@ void secA_5(const string tablename, const int name_length, const string name, co
     // Test Delete Tuples
     rc = rm->deleteTuples(tablename);
     assert(rc == success);
-    
+
     // Test Read Tuple
     memset((char*)data_returned1, 0, 100);
     rc = rm->readTuple(tablename, rid, data_returned1);
     assert(rc != success);
     printTuple(data_returned1, tuple_size);
-    
+
     if(memcmp(tuple, data_returned1, tuple_size) != 0)
     {
         cout << "****Test case 5 passed****" << endl << endl;
@@ -362,7 +362,7 @@ void secA_5(const string tablename, const int name_length, const string name, co
     {
         cout << "****Test case 5 failed****" << endl << endl;
     }
-       
+
     free(tuple);
     free(data_returned);
     free(data_returned1);
@@ -375,7 +375,7 @@ void secA_6(const string tablename)
     // 1. Simple scan **
     cout << "****In Test Case 6****" << endl;
 
-    RID rid;    
+    RID rid;
     int tuple_size = 0;
     int num_records = 5;
     void *tuple;
@@ -404,18 +404,18 @@ void secA_6(const string tablename)
     RM_ScanIterator rmsi;
     string attr = "Age";
     vector<string> attributes;
-    attributes.push_back(attr); 
+    attributes.push_back(attr);
     //rc = rm->scan(tablename, "", NO_OP, NULL, attributes, rmsi);
-    assert(rc == success); 
+    assert(rc == success);
 
     cout << "Scanned Data:" << endl;
-    
+
     while(rmsi.getNextTuple(rid, data_returned) != RM_EOF)
     {
         cout << "Age: " << *(int *)data_returned << endl;
     }
     rmsi.close();
-    
+
     // Deleta Table
     rc = rm->deleteTable(tablename);
     assert(rc == success);
@@ -425,7 +425,7 @@ void secA_6(const string tablename)
     {
         free(tuples[i]);
     }
-    
+
     return;
 }
 
@@ -452,7 +452,7 @@ void Tests()
     // Simple Scan
     createTable("tbl_employee3");
     secA_6("tbl_employee3");
-    
+
     return;
 }
 
@@ -462,9 +462,10 @@ int main()
     cout << endl << "Test Basic Functions..." << endl;
 
     // Create Table
-    createTable("tbl_employee");
+   // createTable("tbl_employee");
 
-    Tests();
+   // Tests();
+    RM *test = RM::Instance();
 
     return 0;
 }

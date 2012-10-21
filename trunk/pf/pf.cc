@@ -167,4 +167,3 @@ unsigned PF_FileHandle::GetNumberOfPages() {
 	size = ftell(handle) / PF_PAGE_SIZE;
 	return size;
 }
-
