@@ -524,6 +524,81 @@ void prepareCatalogTuple(const string name, const string filename, void *buffer,
 	*tuple_size = offset;
 }
 
+
+void getTotalEntries(void * buffer, int* totalEntries) {
+	memcpy(totalEntries, (char *) buffer + END_OF_PAGE - unit, unit);
+}
+
+void writeTotalEntries(void * buffer, int* totalEntries) {
+	memcpy((char*) buffer +END_OF_PAGE -unit, &totalEntries, unit);
+}
+
+void getFreeSpace(void * buffer, int* freeSpace) {
+	memcpy(freeSpace, (char *) buffer + END_OF_PAGE - 2*unit, unit);
+}
+
+void writeFreeSpace(void * buffer, int* freeSpace) {
+	memcpy((char*) buffer +END_OF_PAGE -2*unit, freeSpace, unit);
+}
+
+void writeNewestOffset(void * buffer) {
+	int total;
+	getTotalEntries(buffer,&total);
+	total ++;
+	int offset = (total << 2 + unit);
+
+	if (total >1) {
+		getLatestOffset();
+		getLatestLength();
+		int value = 0; // sum of offset and length
+		memcpy((char *) buffer- offset, &value, unit);
+	}
+}
+
+void writeNewestLength(void * buffer) {
+
+}
+
+void writeSpecificOffset(void * buffer, int position) {
+
+}
+
+void writeSpecificLength(void * buffer, int position) {
+
+}
+
+void getLatestOffset() {
+
+
+}
+
+void getLatestLength() {
+
+}
+
+void getSpecificOffset() {
+
+}
+
+void getSpecificLength() {
+
+}
+
+
+void writeTo(void * dest, void* source, int* source_len, bool isNew ) {
+	if (isNew) {
+		memcpy ((char*) dest, source, *source_len);
+
+		int zero =0;
+		writeTotalEntries(dest, &zero);
+		int freeSpace = PF_PAGE_SIZE - *source_len - 8;
+		writeFreeSpace(dest,&freeSpace);
+
+
+	}
+
+}
+
 void writeTo(void* ptr, int offset, void* tuple, short *tuple_size) {
 	memcpy ((char *) ptr +offset, tuple, *tuple_size);
 }

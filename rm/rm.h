@@ -199,6 +199,8 @@ typedef short twobytes;
 
 # define catalog_file_name  "catalog.data"
 # define column_file_name  "column.data"
+# define unit sizeof(short)
+# define END_OF_PAGE PF_PAGE_SIZE
 
 # define RM_EOF (-1)  // end of a scan operator
 // RM_ScanIterator is an iteratr to go through records
