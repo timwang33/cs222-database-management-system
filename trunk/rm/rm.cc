@@ -616,6 +616,7 @@ void createNewPage(void * buffer) {
 	int free_space = PF_PAGE_SIZE - 4;
 	writeFreeSpace(buffer, &free_space);
 }
+
 RC RM::createTable(const string tableName, const vector<Attribute> &attrs) {
 
 	void *data = malloc(100);
