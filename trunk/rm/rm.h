@@ -1,8 +1,4 @@
-<<<<<<< .mine
 
-=======
-
->>>>>>> .r10
 #ifndef _rm_h_
 #define _rm_h_
 
@@ -43,6 +39,10 @@ struct Attribute {
 	AttrLength length; // attribute length
 };
 
+struct tableHandle {
+	string name; // tablename
+	PF_FileHandle * fileHandle;
+};
 // Comparison Operator
 typedef enum {
 	EQ_OP = 0, // =
@@ -75,7 +75,6 @@ typedef short twobytes;
 //  rmScanIterator.close();
 
 const int zero =0;
-const int zero =0;
 class RM_ScanIterator {
 public:
 	RM_ScanIterator();
@@ -84,12 +83,6 @@ public:
 	// "data" follows the same format as RM::insertTuple()
 	RC getNextTuple(RID &rid, void *data);
 	RC close();
-
-private:
-	 vector<RID> result;
-
-private:
-	 vector<RID> result;
 };
 
 // Record Manager
@@ -131,6 +124,9 @@ public:
 			const vector<string> &attributeNames, // a list of projected attributes
 			RM_ScanIterator &rm_ScanIterator);
 
+	RC openTable(const string tableName);
+
+	RC closeTable(const string tableName);
 // Extra credit
 public:
 	RC dropAttribute(const string tableName, const string attributeName);
@@ -150,6 +146,8 @@ private:
 	PF_FileHandle columnHandle;
 	vector<Attribute> catalogAttrs;
 	vector<Attribute> columnAttrs;
+	vector<tableHandle> allTables;
+
 };
 
 #endif
