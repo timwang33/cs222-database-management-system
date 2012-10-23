@@ -70,6 +70,7 @@ typedef short twobytes;
 //  }
 //  rmScanIterator.close();
 
+const int zero =0;
 class RM_ScanIterator {
 public:
 	RM_ScanIterator();
@@ -78,6 +79,9 @@ public:
 	// "data" follows the same format as RM::insertTuple()
 	RC getNextTuple(RID &rid, void *data);
 	RC close();
+
+private:
+	 vector<RID> result;
 };
 
 // Record Manager
