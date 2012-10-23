@@ -83,6 +83,9 @@ public:
 	// "data" follows the same format as RM::insertTuple()
 	RC getNextTuple(RID &rid, void *data);
 	RC close();
+
+private:
+	 vector<RID> result;
 };
 
 // Record Manager
