@@ -131,8 +131,6 @@ public:
 
 	RC openTable(const string tableName, PF_FileHandle &handle);
 
-
-
 	RC closeTable(const string tableName);
 
 	RC getTableHandle(const string tableName, PF_FileHandle &handle);

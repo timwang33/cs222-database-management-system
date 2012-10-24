@@ -382,8 +382,6 @@ void getFreeSpaceInHeaderPage(void * buffer, int index, int * value) {
 	memcpy(value, (char*) buffer + offset, unit);
 }
 
-
-
 RC RM::openTable(const string tableName, PF_FileHandle &tableHdl) {
 
 	for (int i = 0; i < (int) allTables.size(); i++) {
@@ -401,7 +399,6 @@ RC RM::openTable(const string tableName, PF_FileHandle &tableHdl) {
 
 	return RC_SUCCESS;
 }
-
 
 RC RM::openTable(const string tableName) {
 	PF_FileHandle tableHdl;
@@ -734,7 +731,7 @@ RC RM::createTable(const string tableName, const vector<Attribute> &attrs) {
 	free(catalog_buffer);
 	free(column_buffer);
 	free(header_buffer);
-	return 0;
+	return RC_SUCCESS;
 }
 
 RC RM::deleteTable(const string tableName) {
@@ -748,57 +745,118 @@ RC RM::deleteTable(const string tableName) {
 //  !!!The same format is used for updateTuple(), the returned data of readTuple(), and readAttribute()
 RC RM::insertTuple(const string tableName, const void *data, RID &rid) {
 
-	return RC_SUCCESS;
+	PF_FileHandle tableFileHandle;
+
+	getTableHandle(tableName, tableFileHandle);
+
+	void *content_buffer = malloc(PF_PAGE_SIZE);
+	void *header_buffer = malloc(PF_PAGE_SIZE);
+	void *temp_data = malloc(PF_PAGE_SIZE);
+	tableFileHandle.ReadPage(0, header_buffer);
+	PageNum N = tableFileHandle.GetNumberOfPages();
+	PageNum currentPage;
+
+	vector<Attribute> tableAttributes;
+	getAttributes(tableName,tableAttributes);
+
+	int schema;
+	//getLatestSchema(tableName, schema);
+	//append schema in front of *temp_data;
+	int tuple_size;
+	//getDataSize(data,tableAttributes,&tuple_size);
+	// memcpy(from data to temp_data); temp_data is ready to be written;
+	tuple_size +=2;
+	currentPage = 1;
+	bool dirty = false;
+	bool pass = false;
+	int freeSpace;
+
+	do {
+		if (currentPage == N) {
+			if (dirty) {
+				tableFileHandle.WritePage(currentPage - 1, content_buffer);
+			}
+			createNewPage(content_buffer);
+			freeSpace = PF_PAGE_SIZE - 4;
+			writeFreeSpaceInHeaderPage(header_buffer, currentPage, &freeSpace);
+		}
+		getFreeSpaceInHeaderPage(header_buffer, currentPage, &freeSpace);
+		if (freeSpace < tuple_size + 4) {
+			if (dirty) {
+				tableFileHandle.WritePage(currentPage, content_buffer);
+			}
+			currentPage++;
+
+		} else {
+			pass = true;
+		}
+	} while (!pass);
+
+	freeSpace = freeSpace - tuple_size - 4;
+	writeFreeSpaceInHeaderPage(header_buffer, currentPage, &freeSpace);
+	tableFileHandle.ReadPage(currentPage, content_buffer);
+	writeTo(content_buffer, temp_data, tuple_size);
+	dirty = true;
+
+tableFileHandle.WritePage(0, header_buffer);
+tableFileHandle.WritePage(currentPage, content_buffer);
+
+free(temp_data);
+free(header_buffer);
+free(content_buffer);
+
+
+return RC_SUCCESS;
 }
 
 RC RM::deleteTuples(const string tableName) {
-	return 0;
+return 0;
 }
 
 RC RM::deleteTuple(const string tableName, const RID &rid) {
-	return 0;
+return 0;
 }
 
 // Assume the rid does not change after update
 RC RM::updateTuple(const string tableName, const void *data, const RID &rid) {
-	return 0;
+return 0;
 }
 
 RC RM::readTuple(const string tableName, const RID &rid, void *data) {
-	return 0;
+return 0;
 }
 
 RC RM::readAttribute(const string tableName, const RID &rid,
-		const string attributeName, void *data) {
-	return 0;
+	const string attributeName, void *data) {
+return 0;
 }
 
 RC RM::reorganizePage(const string tableName, const unsigned pageNumber) {
-	return 0;
+return 0;
 }
 
 // scan returns an iterator to allow the caller to go through the results one by one.
 RC RM::scan(const string tableName, const string conditionAttribute,
-		const CompOp compOp, // comparision type such as "<" and "="
-		const void *value, // used in the comparison
-		const vector<string> &attributeNames, // a list of projected attributes
-		RM_ScanIterator &rm_ScanIterator) {
-	return 0;
+	const CompOp compOp, // comparision type such as "<" and "="
+	const void *value, // used in the comparison
+	const vector<string> &attributeNames, // a list of projected attributes
+	RM_ScanIterator &rm_ScanIterator) {
+return 0;
 }
 
 // Extra credit
 
 RC RM::dropAttribute(const string tableName, const string attributeName) {
 
-	return 0;
+return 0;
 }
 
 RC RM::addAttribute(const string tableName, const Attribute attr) {
-	return 0;
+return 0;
 }
 
 RC RM::reorganizeTable(const string tableName) {
-	return 0;
+return 0;
 }
 
 RM_ScanIterator::RM_ScanIterator() {
@@ -812,10 +870,10 @@ RM_ScanIterator::~RM_ScanIterator() {
 // "data" follows the same format as RM::insertTuple()
 
 RC RM_ScanIterator::getNextTuple(RID &rid, void *data) {
-	return RM_EOF;
+return RM_EOF;
 }
 
 RC RM_ScanIterator::close() {
-	return -1;
+return -1;
 }
 
