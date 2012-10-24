@@ -41,7 +41,7 @@ struct Attribute {
 
 struct tableHandle {
 	string name; // tablename
-	PF_FileHandle * fileHandle;
+	PF_FileHandle fileHandle;
 };
 // Comparison Operator
 typedef enum {
@@ -129,7 +129,13 @@ public:
 
 	RC openTable(const string tableName);
 
+	RC openTable(const string tableName, PF_FileHandle &handle);
+
+
+
 	RC closeTable(const string tableName);
+
+	RC getTableHandle(const string tableName, PF_FileHandle &handle);
 // Extra credit
 public:
 	RC dropAttribute(const string tableName, const string attributeName);
