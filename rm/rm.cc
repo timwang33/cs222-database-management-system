@@ -138,87 +138,91 @@ RC getColumnTuple(unsigned *schema, const string tableName, Attribute *attr,
 //Hien tai van chua su dung schema khi getAttribute, moi chi dua tren tableName
 RC RM::getAttributes(const string tableName, vector<Attribute> &attrs) {
 
-        //buffer contain page i starts from page 1
-        //offset of directory
-        int offset = PF_PAGE_SIZE;
-        short N, length, offsetColumnTuple, freeSpace;
-        RC rc = -1;
-        int lastTuple;
-        Attribute attr;
-        unsigned schema_Column = 0, old_Schema_Column, position_Column = 0;
+	//buffer contain page i starts from page 1
+	//offset of directory
+	int offset = PF_PAGE_SIZE;
+	short N, length, offsetColumnTuple, freeSpace;
+	RC rc = -1;
+	int lastTuple;
+	Attribute attr;
+	unsigned schema_Column = 0, old_Schema_Column, position_Column = 0;
 
-        void *buffer;
-        buffer = malloc(PF_PAGE_SIZE);
-        fileManager->OpenFile(column_file_name, columnHandle);
-        PageNum pageNum = columnHandle.GetNumberOfPages();
+	void *buffer;
+	buffer = malloc(PF_PAGE_SIZE);
+	fileManager->OpenFile(column_file_name, columnHandle);
+	PageNum pageNum = columnHandle.GetNumberOfPages();
 
-        //traverse bottom-up
-        for (unsigned i = pageNum - 1; i >0; i--) {
+	//traverse bottom-up
+	for (unsigned i = pageNum - 1; i > 0; i--) {
 
-                //read page i
-                columnHandle.ReadPage(i, buffer);
-                //read number of column tuple on page i
-                memcpy(&N, (char*) buffer + offset - sizeof(short), sizeof(short));
-                offset = offset - sizeof(short);
+		//read page i
+		columnHandle.ReadPage(i, buffer);
+		//read number of column tuple on page i
+		memcpy(&N, (char*) buffer + offset - sizeof(short), sizeof(short));
+		offset = offset - sizeof(short);
 
-                //freeSpace of page i
-                memcpy(&freeSpace, (char*)buffer+ offset - sizeof(short), sizeof(short));
-                offset = offset - sizeof(short);
+		//freeSpace of page i
+		memcpy(&freeSpace, (char*) buffer + offset - sizeof(short),
+				sizeof(short));
+		offset = offset - sizeof(short);
 
-                //get last tuple of table Name from page i to have initial schema, it may not be N tuple
-                while(rc!=RC_SUCCESS)
-                {
-                        lastTuple = N;
-                        offset = offset - 4*(lastTuple-1);
+		//get last tuple of table Name from page i to have initial schema, it may not be N tuple
+		while (rc != RC_SUCCESS) {
+			lastTuple = N;
+			offset = offset - 4 * (lastTuple - 1);
 
-                        memcpy(&length, (char*) buffer + offset - sizeof(short), sizeof(short));
-                        offset = offset - sizeof(short);
+			memcpy(&length, (char*) buffer + offset - sizeof(short),
+					sizeof(short));
+			offset = offset - sizeof(short);
 
-                        //read offset of tuple run
-                        memcpy(&offsetColumnTuple, (char*) buffer + offset - sizeof(short), sizeof(short));
-                        offset = offset - sizeof(short);
+			//read offset of tuple run
+			memcpy(&offsetColumnTuple, (char*) buffer + offset - sizeof(short),
+					sizeof(short));
+			offset = offset - sizeof(short);
 
-                        //read tuple column N
-                        void * data;
-                        data = malloc(100);
-                        memcpy(data, (char*) buffer + offsetColumnTuple, length);
+			//read tuple column N
+			void * data;
+			data = malloc(100);
+			memcpy(data, (char*) buffer + offsetColumnTuple, length);
 
-                        //data contains sequences byte of attribute
-                        rc = getColumnTuple(&schema_Column, tableName, &attr,&position_Column, data, length);
-                        attrs.push_back(attr);
-                        // update Schema
-                        old_Schema_Column = schema_Column;
-                }
-                rc = -1;
-                int j = lastTuple;
-                while((old_Schema_Column==schema_Column)&(rc!=RC_SUCCESS))
-                {
-                        j = j - 1;
-                        offset = offset - 4*(j-1);
+			//data contains sequences byte of attribute
+			rc = getColumnTuple(&schema_Column, tableName, &attr,
+					&position_Column, data, length);
+			attrs.push_back(attr);
+			// update Schema
+			old_Schema_Column = schema_Column;
+		}
+		rc = -1;
+		int j = lastTuple;
+		while ((old_Schema_Column == schema_Column) & (rc != RC_SUCCESS)) {
+			j = j - 1;
+			offset = offset - 4 * (j - 1);
 
-                        memcpy(&length, (char*) buffer + offset - sizeof(short), sizeof(short));
-                        offset = offset - sizeof(short);
+			memcpy(&length, (char*) buffer + offset - sizeof(short),
+					sizeof(short));
+			offset = offset - sizeof(short);
 
-                        //read offset of tuple j
-                        memcpy(&offsetColumnTuple, (char*) buffer + offset - sizeof(short), sizeof(short));
-                        offset = offset - sizeof(short);
+			//read offset of tuple j
+			memcpy(&offsetColumnTuple, (char*) buffer + offset - sizeof(short),
+					sizeof(short));
+			offset = offset - sizeof(short);
 
-                        //read a tuple column
-                        void * data;
-                        data = malloc(100);
-                        memcpy(data, (char*) buffer + offsetColumnTuple, length);
+			//read a tuple column
+			void * data;
+			data = malloc(100);
+			memcpy(data, (char*) buffer + offsetColumnTuple, length);
 
-                        //data contains sequences byte of attribute
-                        getColumnTuple(&schema_Column, tableName, &attr, &position_Column, data, length);
-                        attrs.push_back(attr);
-                }
-                //next schema or next table             //inverse attrs and return
-                reverse(attrs.begin(), attrs.end());
-                return 0;
-        }
-        return -1;
+			//data contains sequences byte of attribute
+			getColumnTuple(&schema_Column, tableName, &attr, &position_Column,
+					data, length);
+			attrs.push_back(attr);
+		}
+		//next schema or next table             //inverse attrs and return
+		reverse(attrs.begin(), attrs.end());
+		return 0;
+	}
+	return -1;
 }
-
 
 void prepareCatalogTuple(const string name, const string filename, void *buffer,
 		short *tuple_size) {
@@ -377,13 +381,56 @@ void getFreeSpaceInHeaderPage(void * buffer, int index, int * value) {
 
 	memcpy(value, (char*) buffer + offset, unit);
 }
-RC RM::openTable(const string tableName) {
 
+
+
+RC RM::openTable(const string tableName, PF_FileHandle &tableHdl) {
+
+	for (int i = 0; i < (int) allTables.size(); i++) {
+		if (strcmp(tableName.c_str(), allTables[i].name.c_str())) {
+			return RC_SUCCESS;
+		}
+	}
+
+	fileManager->OpenFile(tableName.c_str(), tableHdl);
+
+	tableHandle newTable;
+	newTable.name = tableName;
+	newTable.fileHandle = tableHdl;
+	allTables.push_back(newTable);
+
+	return RC_SUCCESS;
 }
 
+
+RC RM::openTable(const string tableName) {
+	PF_FileHandle tableHdl;
+	return openTable(tableName, tableHdl);
+}
+
+RC RM::getTableHandle(const string tableName, PF_FileHandle &handle) {
+
+	for (int i = 0; i < (int) allTables.size(); i++) {
+		if (strcmp(tableName.c_str(), allTables[i].name.c_str())) {
+			handle = allTables[i].fileHandle;
+			return RC_SUCCESS;
+		}
+	}
+	return RC_FAIL;
+
+}
 RC RM::closeTable(const string tableName) {
 
+	for (int i = 0; i < (int) allTables.size(); i++) {
+		if (strcmp(tableName.c_str(), allTables[i].name.c_str())) {
+			fileManager->CloseFile(allTables[i].fileHandle);
+			allTables.erase(allTables.begin() + i);
+			return RC_SUCCESS;
+		}
+	}
+	return RC_FAIL;
 }
+
 RM::RM() {
 
 	fileManager = PF_Manager::Instance();
@@ -578,30 +625,23 @@ RM::RM() {
 	cout << " RC : " << rc << endl;
 
 }
-void printDataFromAttribute(void *data, Attribute attr)
-{
-        int length_var_char;
-        int int_value;
-        float float_value;
-        string string_value;
+void printDataFromAttribute(void *data, Attribute attr) {
+	int length_var_char;
+	int int_value;
+	float float_value;
+	string string_value;
 
-        if(attr.type == TypeInt)
-        {
-                memcpy(&int_value, (char*)data, 4);
-                cout<<int_value <<endl;
-        }
-        else
-                if(attr.type == TypeReal)
-                {
-                        memcpy(&float_value, (char*)data, 4);
-                        cout<<float_value <<endl;
-                }
-                else
-                {
-                        memcpy(&length_var_char, (char*)data, 4);
-                        memcpy((char*)string_value.c_str(), (char*)data, length_var_char);
-                        cout<<string_value <<endl;
-                }
+	if (attr.type == TypeInt) {
+		memcpy(&int_value, (char*) data, 4);
+		cout << int_value << endl;
+	} else if (attr.type == TypeReal) {
+		memcpy(&float_value, (char*) data, 4);
+		cout << float_value << endl;
+	} else {
+		memcpy(&length_var_char, (char*) data, 4);
+		memcpy((char*) string_value.c_str(), (char*) data, length_var_char);
+		cout << string_value << endl;
+	}
 }
 
 RM::~RM() {
@@ -624,12 +664,8 @@ RC RM::createTable(const string tableName, const vector<Attribute> &attrs) {
 	void *column_buffer = malloc(PF_PAGE_SIZE);
 	string fileName = tableName + ".data";
 	fileManager->CreateFile(fileName.c_str());
-	PF_FileHandle  tableHdl;
-	fileManager->OpenFile(fileName.c_str(),tableHdl);
-	tableHandle newTable;
-	newTable.name = fileName;
-	newTable.fileHandle = &tableHdl;
-	allTables.push_back(newTable);
+
+	openTable(tableName);
 
 	short tuple_size;
 	int freeSpace;
@@ -648,7 +684,7 @@ RC RM::createTable(const string tableName, const vector<Attribute> &attrs) {
 			currentPage++;
 			catalogHandle.ReadPage(currentPage, catalog_buffer);
 			if (currentPage == catalogHandle.GetNumberOfPages())
-					createNewPage(catalog_buffer);
+				createNewPage(catalog_buffer);
 		}
 	} while (!pass);
 	catalogHandle.WritePage(currentPage, catalog_buffer);
@@ -660,20 +696,19 @@ RC RM::createTable(const string tableName, const vector<Attribute> &attrs) {
 	currentPage = 1;
 	bool dirty = false;
 
-
-	for (int i = 0; i < (int)attrs.size(); i++) {
-
+	for (int i = 0; i < (int) attrs.size(); i++) {
 
 		prepareColumnTuple(1, tableName, attrs[i], i + 1, data, &tuple_size);
 		pass = false;
 		do {
 			if (currentPage == N) {
-				if (dirty){
-					columnHandle.WritePage(currentPage-1, column_buffer);
+				if (dirty) {
+					columnHandle.WritePage(currentPage - 1, column_buffer);
 				}
 				createNewPage(column_buffer);
-				freeSpace = PF_PAGE_SIZE -4;
-				writeFreeSpaceInHeaderPage(header_buffer,currentPage,&freeSpace);
+				freeSpace = PF_PAGE_SIZE - 4;
+				writeFreeSpaceInHeaderPage(header_buffer, currentPage,
+						&freeSpace);
 			}
 			getFreeSpaceInHeaderPage(header_buffer, currentPage, &freeSpace);
 			if (freeSpace < tuple_size + 4) {
@@ -712,7 +747,8 @@ RC RM::deleteTable(const string tableName) {
 //     For varchar: use 4 bytes to store the length of characters, then store the actual characters.
 //  !!!The same format is used for updateTuple(), the returned data of readTuple(), and readAttribute()
 RC RM::insertTuple(const string tableName, const void *data, RID &rid) {
-	return 0;
+
+	return RC_SUCCESS;
 }
 
 RC RM::deleteTuples(const string tableName) {

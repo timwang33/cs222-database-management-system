@@ -82,7 +82,7 @@ void createTable(const string tablename)
     // 1. Create Table ** -- made separate now.
     vector<Attribute> attrs;
 
-    AttrType test;
+
 
     Attribute attr;
     attr.name = "EmpName";
