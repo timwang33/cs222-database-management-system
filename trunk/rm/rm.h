@@ -134,6 +134,10 @@ public:
 	RC closeTable(const string tableName);
 
 	RC getTableHandle(const string tableName, PF_FileHandle &handle);
+
+	RC getAttributeFromColumnFile(void * data, Attribute & att, int index);
+
+	RC getLatestSchema(const string tableName, int* schema);
 // Extra credit
 public:
 	RC dropAttribute(const string tableName, const string attributeName);

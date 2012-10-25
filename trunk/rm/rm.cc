@@ -134,95 +134,28 @@ RC getColumnTuple(unsigned *schema, const string tableName, Attribute *attr,
 	}
 	return -1;
 }
+/*
+RC RM::getAttributeFromColumnFile(void * data, void * result, int index) {
 
-//Hien tai van chua su dung schema khi getAttribute, moi chi dua tren tableName
-RC RM::getAttributes(const string tableName, vector<Attribute> &attrs) {
-
-	//buffer contain page i starts from page 1
-	//offset of directory
-	int offset = PF_PAGE_SIZE;
-	short N, length, offsetColumnTuple, freeSpace;
-	RC rc = -1;
-	int lastTuple;
-	Attribute attr;
-	unsigned schema_Column = 0, old_Schema_Column, position_Column = 0;
-
-	void *buffer;
-	buffer = malloc(PF_PAGE_SIZE);
-	fileManager->OpenFile(column_file_name, columnHandle);
-	PageNum pageNum = columnHandle.GetNumberOfPages();
-
-	//traverse bottom-up
-	for (unsigned i = pageNum - 1; i > 0; i--) {
-
-		//read page i
-		columnHandle.ReadPage(i, buffer);
-		//read number of column tuple on page i
-		memcpy(&N, (char*) buffer + offset - sizeof(short), sizeof(short));
-		offset = offset - sizeof(short);
-
-		//freeSpace of page i
-		memcpy(&freeSpace, (char*) buffer + offset - sizeof(short),
-				sizeof(short));
-		offset = offset - sizeof(short);
-
-		//get last tuple of table Name from page i to have initial schema, it may not be N tuple
-		while (rc != RC_SUCCESS) {
-			lastTuple = N;
-			offset = offset - 4 * (lastTuple - 1);
-
-			memcpy(&length, (char*) buffer + offset - sizeof(short),
-					sizeof(short));
-			offset = offset - sizeof(short);
-
-			//read offset of tuple run
-			memcpy(&offsetColumnTuple, (char*) buffer + offset - sizeof(short),
-					sizeof(short));
-			offset = offset - sizeof(short);
-
-			//read tuple column N
-			void * data;
-			data = malloc(100);
-			memcpy(data, (char*) buffer + offsetColumnTuple, length);
-
-			//data contains sequences byte of attribute
-			rc = getColumnTuple(&schema_Column, tableName, &attr,
-					&position_Column, data, length);
-			attrs.push_back(attr);
-			// update Schema
-			old_Schema_Column = schema_Column;
+	int length_var_char;
+	Attribute attr = columnAttrs[index];
+	int offset = 0;
+	for (unsigned i = 0; i < index; i++) {
+		switch (columnAttrs[i].type) {
+		case TypeInt:
+		case TypeReal:
+			offset += 4;
+			break;
+		case TypeVarChar:
+			memcpy(&length_var_char, (char*) data, 4);
+			offset += 4 + length_var_char;
+			break;
 		}
-		rc = -1;
-		int j = lastTuple;
-		while ((old_Schema_Column == schema_Column) & (rc != RC_SUCCESS)) {
-			j = j - 1;
-			offset = offset - 4 * (j - 1);
-
-			memcpy(&length, (char*) buffer + offset - sizeof(short),
-					sizeof(short));
-			offset = offset - sizeof(short);
-
-			//read offset of tuple j
-			memcpy(&offsetColumnTuple, (char*) buffer + offset - sizeof(short),
-					sizeof(short));
-			offset = offset - sizeof(short);
-
-			//read a tuple column
-			void * data;
-			data = malloc(100);
-			memcpy(data, (char*) buffer + offsetColumnTuple, length);
-
-			//data contains sequences byte of attribute
-			getColumnTuple(&schema_Column, tableName, &attr, &position_Column,
-					data, length);
-			attrs.push_back(attr);
-		}
-		//next schema or next table             //inverse attrs and return
-		reverse(attrs.begin(), attrs.end());
-		return 0;
 	}
-	return -1;
-}
+
+}*/
+
+
 
 void prepareCatalogTuple(const string name, const string filename, void *buffer,
 		short *tuple_size) {
@@ -320,6 +253,180 @@ void getLastOffset(void * buffer, int * result) {
 
 }
 
+//Hien tai van chua su dung schema khi getAttribute, moi chi dua tren tableName
+RC RM::getAttributes(const string tableName, vector<Attribute> &attrs) {
+
+	//buffer contain page i starts from page 1
+	//offset of directory
+	int offset = PF_PAGE_SIZE;
+	int length, offsetColumnTuple;
+	int N;
+	int freeSpace;
+	RC rc = -1;
+	int lastTuple;
+	Attribute attr;
+	unsigned schema_Column = 0, old_Schema_Column, position_Column = 0;
+
+	void *buffer = malloc(PF_PAGE_SIZE);
+
+	PageNum pageNum = columnHandle.GetNumberOfPages();
+
+	void * tuple = malloc(PF_PAGE_SIZE);
+	int index;
+	//traverse bottom-up
+	bool finished = false;
+	for (unsigned i = pageNum - 1; i >= 0; i--) {
+		if (finished)
+			break;
+		//read page i
+		columnHandle.ReadPage(i, buffer);
+		//read number of column tuple on page i
+
+		getTotalEntries(buffer, &N);
+
+		//freeSpace of page i
+		getFreeSpace(buffer, &freeSpace);
+
+		index = N;
+		while (index > 0 || finished) {
+			//get last tuple of table Name from page i to have initial schema, it may not be N tuple
+			getSpecificOffset(buffer, index, &offset);
+			getSpecificLength(buffer, index, &length);
+
+			//get tuple
+
+			memcpy((char*) tuple, (char*) buffer + offset, length);
+
+			rc = getColumnTuple(&schema_Column, tableName, &attr,&position_Column, tuple, length);
+			index--;
+			if (rc == RC_SUCCESS
+			)
+				attrs.push_back(attr);
+
+			if (attrs.size() == 1)
+				old_Schema_Column = schema_Column;
+			if (attrs.size() != 2 && old_Schema_Column != schema_Column)
+				finished = true;
+		}
+
+	}
+	reverse(attrs.begin(), attrs.end());
+	return 0;
+
+}
+RC RM::getLatestSchema(const string tableName, int* schema) {
+//buffer contain page i starts from page 1
+//offset of directory
+	int offset = PF_PAGE_SIZE;
+	short N, length, offsetColumnTuple, freeSpace;
+	RC rc = -1;
+	int lastTuple;
+	Attribute attr;
+	unsigned schema_Column = 0, position_Column = 0;
+
+// open file table
+	void *buffer;
+	buffer = malloc(PF_PAGE_SIZE);
+
+
+	PageNum pageNum = columnHandle.GetNumberOfPages();
+
+//traverse bottom-up
+	for (unsigned i = pageNum - 1; i >= 0; i--) {
+		if (rc == RC_SUCCESS) break;
+		//read page i
+		columnHandle.ReadPage(i, buffer);
+		//read number of column tuple on page i
+		memcpy(&N, (char*) buffer + offset - sizeof(short), sizeof(short));
+		offset = offset - sizeof(short);
+
+		//freeSpace of page i
+		memcpy(&freeSpace, (char*) buffer + offset - sizeof(short),
+				sizeof(short));
+		offset = offset - sizeof(short);
+
+		//get last tuple of table Name from page i to have initial schema, it may not be N tuple
+		while (rc != RC_SUCCESS) {
+			lastTuple = N;
+			offset = offset - 4 * (lastTuple - 1);
+
+			memcpy(&length, (char*) buffer + offset - sizeof(short),
+					sizeof(short));
+			offset = offset - sizeof(short);
+
+			//read offset of tuple run
+			memcpy(&offsetColumnTuple, (char*) buffer + offset - sizeof(short),
+					sizeof(short));
+			offset = offset - sizeof(short);
+
+			//read tuple column N
+			void * data;
+			data = malloc(100);
+			memcpy(data, (char*) buffer + offsetColumnTuple, length);
+
+			//data contains sequences byte of attribute
+			rc = getColumnTuple(&schema_Column, tableName, &attr,
+					&position_Column, data, length);
+			// update Schema
+		}
+		if (schema_Column != 0) {
+			*schema = schema_Column;
+		}
+
+
+	}
+
+	free(buffer);
+	return rc;
+}
+
+void insertSchema(void * tuple, int schema, int tuple_size) {
+	void *temp;
+	temp = malloc(100);
+
+//write schema to the begin of temp
+	memcpy((char*) temp, &schema, 4);
+//write temp_data to temp, from byte 5th to (byte (5 + tuple_size)th
+	memcpy((char*) temp + 4, (char*) tuple, tuple_size);
+
+	memcpy((char*) tuple, (char*) temp, tuple_size + 4);
+
+	free(temp);
+}
+
+void getDataSize(void *data, vector<Attribute> attrs, int *tuple_size,
+		bool hasSchema) {
+	int length_var_char;
+	unsigned i;
+	int offset;
+
+	if (hasSchema) {
+		offset = 4;
+		i = 1;
+	} else {
+		offset = 0;
+		i = 0;
+	}
+
+	for (; i < attrs.size(); i++) {
+		switch (attrs[i].type) {
+		case TypeInt:
+		case TypeReal:
+			offset += 4;
+			break;
+		case TypeVarChar:
+			memcpy(&length_var_char, (char*) data + offset, 4);
+			offset += 4 + length_var_char;
+			break;
+		default:
+			cerr << "Error decoding attrs[i]" << endl;
+			break;
+		}
+	}
+
+	*tuple_size = offset;
+}
+
 void getLastLength(void * buffer, int * result) {
 	int position;
 	getTotalEntries(buffer, &position);
@@ -342,7 +449,7 @@ void writeTo(void * dest, void* source, int source_len) {
 
 	memcpy((char*) dest + offset, source, source_len);
 
-	//update directory:
+//update directory:
 	int total;
 	getTotalEntries(dest, &total);
 	total++;
@@ -433,7 +540,7 @@ RM::RM() {
 	fileManager = PF_Manager::Instance();
 	remove(catalog_file_name);
 	remove(column_file_name);
-	//open catalog files
+//open catalog files
 	struct stat stFileInfo;
 
 	if (stat(catalog_file_name, &stFileInfo) != 0) { //catalog not exist
@@ -616,7 +723,7 @@ RM::RM() {
 	}
 	fileManager->OpenFile(column_file_name, columnHandle);
 
-	//Test getAttributes
+//Test getAttributes
 	vector<Attribute> attrs;
 	RC rc = getAttributes("Catalog", attrs);
 	cout << " RC : " << rc << endl;
@@ -636,8 +743,43 @@ void printDataFromAttribute(void *data, Attribute attr) {
 		cout << float_value << endl;
 	} else {
 		memcpy(&length_var_char, (char*) data, 4);
-		memcpy((char*) string_value.c_str(), (char*) data, length_var_char);
+		memcpy((char*) string_value.c_str(), (char*) data + 4, length_var_char);
 		cout << string_value << endl;
+	}
+}
+
+void printDataFromAttributes(void *data, vector<Attribute> attrs) {
+	int length_var_char;
+	int int_value;
+	float float_value;
+	string string_value;
+	unsigned i = 0;
+	short offset;
+
+	for (i = 0; i <= attrs.size(); i++) {
+		offset = 0;
+		switch (attrs[i].type) {
+		case TypeInt:
+			memcpy(&int_value, (char*) data + offset, 4);
+			cout << int_value << endl;
+			offset += 4;
+			break;
+		case TypeReal:
+			memcpy(&float_value, (char*) data + offset, 4);
+			cout << float_value << endl;
+			offset += 4;
+			break;
+		case TypeVarChar:
+			memcpy(&length_var_char, (char*) data + offset, 4);
+			memcpy((char*) string_value.c_str(), (char*) data + 4 + offset,
+					length_var_char);
+			cout << string_value << endl;
+			offset += 4 + length_var_char;
+			break;
+		default:
+			cerr << "Error @ printDataFromAttributes" << endl;
+			break;
+		}
 	}
 }
 
@@ -757,15 +899,19 @@ RC RM::insertTuple(const string tableName, const void *data, RID &rid) {
 	PageNum currentPage;
 
 	vector<Attribute> tableAttributes;
-	getAttributes(tableName,tableAttributes);
+	getAttributes(tableName, tableAttributes);
 
 	int schema;
-	//getLatestSchema(tableName, schema);
-	//append schema in front of *temp_data;
-	int tuple_size;
-	//getDataSize(data,tableAttributes,&tuple_size);
-	// memcpy(from data to temp_data); temp_data is ready to be written;
-	tuple_size +=2;
+	int tuple_size=0;
+    getLatestSchema(tableName, &schema);
+    getDataSize((void*)data,tableAttributes,&tuple_size,false);
+
+    //write schema to the begin of temp
+    	memcpy((char*) temp_data, &schema, 4);
+    //write temp_data to temp, from byte 5th to (byte (5 + tuple_size)th
+    	memcpy((char*) temp_data + 4, (char*) data, tuple_size);
+
+	tuple_size += 4;
 	currentPage = 1;
 	bool dirty = false;
 	bool pass = false;
@@ -798,65 +944,92 @@ RC RM::insertTuple(const string tableName, const void *data, RID &rid) {
 	writeTo(content_buffer, temp_data, tuple_size);
 	dirty = true;
 
-tableFileHandle.WritePage(0, header_buffer);
-tableFileHandle.WritePage(currentPage, content_buffer);
+	tableFileHandle.WritePage(0, header_buffer);
+	tableFileHandle.WritePage(currentPage, content_buffer);
 
-free(temp_data);
-free(header_buffer);
-free(content_buffer);
+	free(temp_data);
+	free(header_buffer);
+	free(content_buffer);
 
-
-return RC_SUCCESS;
+	return RC_SUCCESS;
 }
 
 RC RM::deleteTuples(const string tableName) {
-return 0;
+	return 0;
 }
 
 RC RM::deleteTuple(const string tableName, const RID &rid) {
-return 0;
+	void * buffer = malloc(PF_PAGE_SIZE);
+	PF_FileHandle fileHandle;
+	short offset = -1;
+
+	getTableHandle(tableName, fileHandle);
+
+//read page rid.pageName contain tuple rid
+	fileHandle.ReadPage(rid.pageNum, buffer);
+
+//get tuple rid.slotNum and write -1 to offset of rid.slotNum
+//offset of the slotNum's offset
+	writeSpecificOffset(buffer, (int) rid.slotNum, (int*) &offset);
+
+//Nhu vay la da dat offset cua slotNum bang -1
+
+	fileHandle.WritePage(rid.pageNum, buffer);
+
+	free(buffer);
+	return 0;
 }
 
 // Assume the rid does not change after update
 RC RM::updateTuple(const string tableName, const void *data, const RID &rid) {
-return 0;
+	return 0;
 }
 
 RC RM::readTuple(const string tableName, const RID &rid, void *data) {
-return 0;
+	//get TableHAndle (tableName)
+	// read tuple rid
+	//memcpy(data,tuple)
+	return 0;
 }
 
 RC RM::readAttribute(const string tableName, const RID &rid,
-	const string attributeName, void *data) {
-return 0;
+		const string attributeName, void *data) {
+
+	//get TableHAndle (tableName)
+	// read tuple rid
+	//get Vector<Attribute>
+	// compare with attributeName, find the offset & size of attribute
+	// memcpy(data, tuple+offset,size
+
+	return 0;
 }
 
 RC RM::reorganizePage(const string tableName, const unsigned pageNumber) {
-return 0;
+	return 0;
 }
 
 // scan returns an iterator to allow the caller to go through the results one by one.
 RC RM::scan(const string tableName, const string conditionAttribute,
-	const CompOp compOp, // comparision type such as "<" and "="
-	const void *value, // used in the comparison
-	const vector<string> &attributeNames, // a list of projected attributes
-	RM_ScanIterator &rm_ScanIterator) {
-return 0;
+		const CompOp compOp, // comparision type such as "<" and "="
+		const void *value, // used in the comparison
+		const vector<string> &attributeNames, // a list of projected attributes
+		RM_ScanIterator &rm_ScanIterator) {
+	return 0;
 }
 
 // Extra credit
 
 RC RM::dropAttribute(const string tableName, const string attributeName) {
 
-return 0;
+	return 0;
 }
 
 RC RM::addAttribute(const string tableName, const Attribute attr) {
-return 0;
+	return 0;
 }
 
 RC RM::reorganizeTable(const string tableName) {
-return 0;
+	return 0;
 }
 
 RM_ScanIterator::RM_ScanIterator() {
@@ -870,10 +1043,10 @@ RM_ScanIterator::~RM_ScanIterator() {
 // "data" follows the same format as RM::insertTuple()
 
 RC RM_ScanIterator::getNextTuple(RID &rid, void *data) {
-return RM_EOF;
+	return RM_EOF;
 }
 
 RC RM_ScanIterator::close() {
-return -1;
+	return -1;
 }
 

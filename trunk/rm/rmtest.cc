@@ -459,13 +459,14 @@ void Tests()
 int main()
 {
     // Basic Functions
-    cout << endl << "Test Basic Functions..." << endl;
+	 RM *test = RM::Instance();
+	cout << endl << "Test Basic Functions..." << endl;
 
     // Create Table
-   // createTable("tbl_employee");
+   createTable("tbl_employee");
 
-   // Tests();
-    RM *test = RM::Instance();
+    Tests();
+
 
     return 0;
 }
