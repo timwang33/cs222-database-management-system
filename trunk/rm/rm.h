@@ -85,7 +85,10 @@ public:
 	RC close();
 
 private:
-	 vector<RID> result;
+	RM * RecordManager;
+	vector<RID> result;
+	string tableName;
+	unsigned int next;
 };
 
 // Record Manager
@@ -138,6 +141,10 @@ public:
 	RC getAttributeFromColumnFile(void * data, Attribute & att, int index);
 
 	RC getLatestSchema(const string tableName, int* schema);
+
+	RC getAttributesAndSchema(const string tableName, vector<Attribute> &attrs, int& schema);
+
+	RC getAttributesOfSchema(const string tableName, vector<Attribute> &attrs, short schema);
 // Extra credit
 public:
 	RC dropAttribute(const string tableName, const string attributeName);
