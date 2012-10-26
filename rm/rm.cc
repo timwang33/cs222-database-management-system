@@ -5,6 +5,7 @@ using namespace std;
 RM* RM::_rm = 0;
 
 RM* RM::Instance() {
+
 	if (!_rm)
 		_rm = new RM();
 
@@ -233,78 +234,83 @@ void prepareCatalogTuple(const string name, const string filename, void *buffer,
 	*tuple_size = offset;
 }
 
-void getTotalEntries(void * buffer, int* totalEntries) {
-	memcpy(totalEntries, (char *) buffer + END_OF_PAGE - unit,unit);
+void getTotalEntries(void * buffer, short &totalEntries) {
+	//totalEntries = *((short *) buffer + END_OF_PAGE - unit);
+	memcpy(&totalEntries, (char*) buffer + END_OF_PAGE - unit, unit);
 
 }
 
-void writeTotalEntries(void * buffer, int* totalEntries) {
-	memcpy((char*) buffer + END_OF_PAGE - unit, totalEntries,unit);
+void writeTotalEntries(void * buffer, short totalEntries) {
+
+	//*((short*) buffer + END_OF_PAGE - unit) = totalEntries;
+	memcpy((char*)  buffer + END_OF_PAGE - unit, &totalEntries, unit);
 }
 
-void getFreeSpace(void * buffer, int* freeSpace) {
-	memcpy(freeSpace, (char *) buffer + END_OF_PAGE - 2 * unit,unit);
-}
-
-void writeFreeSpace(void * buffer, int* freeSpace) {
-	memcpy((char*) buffer + END_OF_PAGE - 2 * unit, freeSpace,unit);
-}
-
-void writeSpecificOffset(void * buffer, int position, int * value) {
-	int offset = (position << 2) + unit;
-	memcpy((char *) buffer + END_OF_PAGE - offset, value, unit);
-}
-
-void writeSpecificLength(void * buffer, int position, int* value) {
-	int offset = (position << 2) + 2 * unit;
-	memcpy((char *) buffer + END_OF_PAGE - offset, value, unit);
-}
-
-void getSpecificOffset(void * buffer, int position, int * result) {
-	int offset = (position << 2) + unit;
-
-	memcpy(result, (char*) buffer + END_OF_PAGE - offset, unit);
+void getFreeSpace(void * buffer,  short &freeSpace) {
+	//freeSpace = *((short*) buffer + END_OF_PAGE - 2 * unit);
+	memcpy(&freeSpace, (char*) buffer + END_OF_PAGE - 2*unit, unit);
 
 }
 
-void getSpecificLength(void * buffer, int position, int * result) {
-	int offset = (position << 2) + 2 * unit;
+void writeFreeSpace(void * buffer, short freeSpace) {
+	//*((short*) buffer + END_OF_PAGE - 2 * unit) = freeSpace;
+	memcpy((char*)  buffer + END_OF_PAGE - 2 * unit, &freeSpace, unit);
+}
 
-	memcpy(result, (char*) buffer + END_OF_PAGE - offset, unit);
+void writeSpecificOffset(void * buffer, short position, short value) {
+	short offset = (position << 2) + unit;
+	memcpy((char *) buffer + END_OF_PAGE - offset, &value, unit);
+}
+
+void writeSpecificLength(void * buffer, short position, short value) {
+	short offset = (position << 2) + 2 * unit;
+	memcpy((char *) buffer + END_OF_PAGE - offset, &value, unit);
+}
+
+void getSpecificOffset(void * buffer, short position, short &result) {
+	short offset = (position << 2) + unit;
+	memcpy(&result, (char*) buffer + END_OF_PAGE - offset, unit);
+}
+
+void getSpecificLength(void * buffer, short position, short &result) {
+	short offset = (position << 2) + 2 * unit;
+	memcpy(&result, (char*) buffer + END_OF_PAGE - offset, unit);
 }
 
 void writeNewestOffset(void * buffer) {
-	int position;
-	getTotalEntries(buffer, &position);
-	int value;
+	short position;
+	getTotalEntries(buffer, position);
+	short value;
 
-	int lastOffset;
-	int lastLength;
-	getSpecificOffset(buffer, position, &lastOffset);
-	getSpecificLength(buffer, position, &lastLength);
+	short lastOffset;
+	short lastLength;
+	getSpecificOffset(buffer, position, lastOffset);
+	getSpecificLength(buffer, position, lastLength);
 	value = lastOffset + lastLength;
 
-	writeSpecificOffset(buffer, position + 1, &value);
+	writeSpecificOffset(buffer, position + 1, value);
 
 }
 
-void writeNewestLength(void * buffer, int* value) {
-	int position;
-	getTotalEntries(buffer, &position);
+void writeNewestLength(void * buffer, int &value) {
+	short position;
+	getTotalEntries(buffer, position);
 	int offset = ((position + 1) << 2) + 2 * unit;
-	memcpy((char *) buffer + END_OF_PAGE - offset, value, unit);
+	memcpy((char *) buffer + END_OF_PAGE - offset, &value, unit);
+
+	//remember to write totalEntries +1 after this
 }
 
-void getLastOffset(void * buffer, int * result) {
-	int position;
-	getTotalEntries(buffer, &position);
+void getLastOffset(void * buffer, short &result) {
+	short position;
+	getTotalEntries(buffer, position);
 	if (position == 0) {
-		*result = 0;
+		result = 0;
 		return;
 	}
-	int offset = (position << 2) + unit;
+	short offset = (position << 2) + unit;
 
-	memcpy(result, (char*) buffer + END_OF_PAGE - offset, unit);
+	memcpy(&result, (char*) buffer + END_OF_PAGE - offset, unit);
 
 }
 
@@ -312,10 +318,10 @@ RC RM::getAttributesAndSchema(const string tableName, vector<Attribute> &attrs, 
 
 	//buffer contain page i starts from page 1
 	//offset of directory
-	int offset = PF_PAGE_SIZE;
-	int length;
-	int N;
-	int freeSpace;
+	short offset = PF_PAGE_SIZE;
+	short length;
+	short N;
+	short freeSpace;
 	RC rc = -1;
 
 	Attribute attr;
@@ -326,7 +332,7 @@ RC RM::getAttributesAndSchema(const string tableName, vector<Attribute> &attrs, 
 	PageNum pageNum = columnHandle.GetNumberOfPages();
 
 	void * tuple = malloc(PF_PAGE_SIZE);
-	int index;
+	short index;
 	//traverse bottom-up
 	bool finished = false;
 	for (unsigned i = pageNum - 1; i >= 0; i--) {
@@ -336,16 +342,16 @@ RC RM::getAttributesAndSchema(const string tableName, vector<Attribute> &attrs, 
 		columnHandle.ReadPage(i, buffer);
 		//read number of column tuple on page i
 
-		getTotalEntries(buffer, &N);
+		getTotalEntries(buffer, N);
 
 		//freeSpace of page i
-		getFreeSpace(buffer, &freeSpace);
+		getFreeSpace(buffer, freeSpace);
 
 		index = N;
 		while (index > 0 || !finished) {
 			//get last tuple of table Name from page i to have initial schema, it may not be N tuple
-			getSpecificOffset(buffer, index, &offset);
-			getSpecificLength(buffer, index, &length);
+			getSpecificOffset(buffer, index, offset);
+			getSpecificLength(buffer, index, length);
 
 			//get tuple
 
@@ -369,12 +375,12 @@ RC RM::getAttributesOfSchema(const string tableName, vector<Attribute> &attrs, s
 
 	//buffer contain page i starts from page 1
 	//offset of directory
-	int offset = PF_PAGE_SIZE;
-	int length, offsetColumnTuple;
-	int N;
-	int freeSpace;
+	short offset = PF_PAGE_SIZE;
+	short length;
+	short N;
+	short freeSpace;
 	RC rc = -1;
-	int lastTuple;
+
 	Attribute attr;
 	unsigned schema_Column = 0, old_Schema_Column, position_Column = 0;
 
@@ -393,16 +399,16 @@ RC RM::getAttributesOfSchema(const string tableName, vector<Attribute> &attrs, s
 		columnHandle.ReadPage(i, buffer);
 		//read number of column tuple on page i
 
-		getTotalEntries(buffer, &N);
+		getTotalEntries(buffer, N);
 
 		//freeSpace of page i
-		getFreeSpace(buffer, &freeSpace);
+		getFreeSpace(buffer, freeSpace);
 
 		index = N;
 		while (index > 0 || !finished) {
 			//get last tuple of table Name from page i to have initial schema, it may not be N tuple
-			getSpecificOffset(buffer, index, &offset);
-			getSpecificLength(buffer, index, &length);
+			getSpecificOffset(buffer, index, offset);
+			getSpecificLength(buffer, index, length);
 
 			//get tuple
 
@@ -428,10 +434,10 @@ RC RM::getAttributes(const string tableName, vector<Attribute> &attrs) {
 
 	//buffer contain page i starts from page 1
 	//offset of directory
-	int offset = PF_PAGE_SIZE;
-	int length;
-	int N;
-	int freeSpace;
+	short offset = PF_PAGE_SIZE;
+	short length;
+	short N;
+	short freeSpace;
 	RC rc = -1;
 
 	Attribute attr;
@@ -452,16 +458,16 @@ RC RM::getAttributes(const string tableName, vector<Attribute> &attrs) {
 		columnHandle.ReadPage(i, buffer);
 		//read number of column tuple on page i
 
-		getTotalEntries(buffer, &N);
+		getTotalEntries(buffer, N);
 
 		//freeSpace of page i
-		getFreeSpace(buffer, &freeSpace);
+		getFreeSpace(buffer, freeSpace);
 
 		index = N;
-		while (index > 0 || !finished) {
+		while (index > 0 && !finished) {
 			//get last tuple of table Name from page i to have initial schema, it may not be N tuple
-			getSpecificOffset(buffer, index, &offset);
-			getSpecificLength(buffer, index, &length);
+			getSpecificOffset(buffer, index, offset);
+			getSpecificLength(buffer, index, length);
 
 			//get tuple
 
@@ -593,39 +599,39 @@ void getDataSize(void *data, vector<Attribute> attrs, int *tuple_size,
 	*tuple_size = offset;
 }
 
-void getLastLength(void * buffer, int * result) {
-	int position;
-	getTotalEntries(buffer, &position);
+void getLastLength(void * buffer, short &result) {
+	short position;
+	getTotalEntries(buffer, position);
 	if (position == 0) {
-		*result = 0;
+		result = 0;
 		return;
 	}
 
-	int offset = (position << 2) + 2 * unit;
+	short offset = (position << 2) + 2 * unit;
 
-	memcpy(result, (char*) buffer + END_OF_PAGE - offset, unit);
+	memcpy(&result, (char*) buffer + END_OF_PAGE - offset, unit);
 }
 
-void writeTo(void * dest, void* source, int source_len) {
-	int lastOffset;
-	int lastLength;
-	getLastOffset(dest, &lastOffset);
-	getLastLength(dest, &lastLength);
-	int offset = lastOffset + lastLength;
+void writeTo(void * dest, void* source, short source_len) {
+	short lastOffset;
+	short lastLength;
+	getLastOffset(dest, lastOffset);
+	getLastLength(dest, lastLength);
+	short offset = lastOffset + lastLength;
 
 	memcpy((char*) dest + offset, source, source_len);
 
 //update directory:
-	int total;
-	getTotalEntries(dest, &total);
+	short total;
+	getTotalEntries(dest, total);
 	total++;
-	writeSpecificOffset(dest, total, &offset);
-	writeSpecificLength(dest, total, &source_len);
-	writeTotalEntries(dest, &total);
-	int free_space;
-	getFreeSpace(dest, &free_space);
+	writeSpecificOffset(dest, total, offset);
+	writeSpecificLength(dest, total, source_len);
+	writeTotalEntries(dest, total);
+	short free_space;
+	getFreeSpace(dest, free_space);
 	free_space = free_space - source_len - 4;
-	writeFreeSpace(dest, &free_space);
+	writeFreeSpace(dest, free_space);
 }
 
 void writeTo(void* ptr, int offset, void* tuple, short *tuple_size) {
@@ -643,16 +649,16 @@ void readFrom(void* ptr, int offset, void* value) {
 	memcpy(value, (char *) ptr + offset, sizeof(short));
 }
 
-void writeFreeSpaceInHeaderPage(void * buffer, int index, int* value) {
-	int offset = index << 1;
+void writeFreeSpaceInHeaderPage(void * buffer, short index, short value) {
+	short offset = index << 1;
 
-	memcpy((char*) buffer + offset, value, unit);
+	*((short*) buffer + offset) = value;
 }
 
-void getFreeSpaceInHeaderPage(void * buffer, int index, int * value) {
-	int offset = index << 1;
+void getFreeSpaceInHeaderPage(void * buffer, short index, short &value) {
+	short offset = index << 1;
 
-	memcpy(value, (char*) buffer + offset, unit);
+	value = *((short*) buffer + offset);
 }
 
 RC RM::openTable(const string tableName, PF_FileHandle &tableHdl) {
@@ -719,11 +725,13 @@ RM::RM() {
 		prepareCatalogTuple("Catalog", catalog_file_name, tuple, &tuple_size);
 
 		void * buffer = malloc(PF_PAGE_SIZE);
-		int uno = 0;
-		int free_space = PF_PAGE_SIZE - 4;
-		writeTotalEntries(buffer, &uno);
-		writeFreeSpace(buffer, &free_space);
-
+		short uno;
+		short free_space = PF_PAGE_SIZE - 4;
+		writeTotalEntries(buffer, 0);
+		writeFreeSpace(buffer, free_space);
+getTotalEntries(buffer,uno);
+short testfrees;
+getFreeSpace(buffer,testfrees);
 		/*short offsetFreeSpace = 0;
 		 short total_entry = 0;
 		 short length;
@@ -731,7 +739,7 @@ RM::RM() {
 		 total_entry = 1;
 		 length = tuple_size;
 		 offset*/
-		//writeTo(buffer,tuple,tuple_size);
+		writeTo(buffer,tuple,tuple_size);
 		//short offset = 0;
 		//memcpy((char *) buffer, tuple, tuple_size);
 		//int offset = PF_PAGE_SIZE;
@@ -791,14 +799,14 @@ RM::RM() {
 		short tuple_size;
 		//short offset = 0;
 
-		int initFree = PF_PAGE_SIZE - unit;
-		writeFreeSpaceInHeaderPage(buffer, 0, &initFree);
+		short initFree = PF_PAGE_SIZE - unit;
+		writeFreeSpaceInHeaderPage(buffer, 0, initFree);
 		columnHandle.WritePage(0, buffer);
 
-		int uno = 0;
-		int free_space = PF_PAGE_SIZE - 4;
-		writeTotalEntries(buffer, &uno);
-		writeFreeSpace(buffer, &free_space);
+		short uno = 0;
+		short free_space = PF_PAGE_SIZE - 4;
+		writeTotalEntries(buffer, uno);
+		writeFreeSpace(buffer, free_space);
 
 		Attribute attr;
 
@@ -874,12 +882,12 @@ RM::RM() {
 		//writeTo(buffer, offset, data, &tuple_size);
 		//offset += tuple_size;
 
-		getFreeSpace(buffer, &free_space);
+		getFreeSpace(buffer, free_space);
 
 		columnHandle.WritePage(1, buffer);
 
 		columnHandle.ReadPage(0, buffer);
-		writeFreeSpaceInHeaderPage(buffer, 1, &free_space);
+		writeFreeSpaceInHeaderPage(buffer, 1, free_space);
 		columnHandle.WritePage(0, buffer);
 		/*short freespace = PF_PAGE_SIZE - offset;
 		 cout<< " free space is: "<< freespace <<endl;*/
@@ -958,8 +966,8 @@ void createNewPage(void * buffer) {
 
 	int uno = 0;
 	memset(buffer, uno, PF_PAGE_SIZE);
-	int free_space = PF_PAGE_SIZE - 4;
-	writeFreeSpace(buffer, &free_space);
+	short free_space = PF_PAGE_SIZE - 4;
+	writeFreeSpace(buffer, free_space);
 }
 
 RC RM::createTable(const string tableName, const vector<Attribute> &attrs) {
@@ -973,14 +981,14 @@ RC RM::createTable(const string tableName, const vector<Attribute> &attrs) {
 	openTable(tableName);
 
 	short tuple_size;
-	int freeSpace;
+	short freeSpace;
 	PageNum currentPage = 0;
 	catalogHandle.ReadPage(currentPage, catalog_buffer);
 	prepareCatalogTuple(tableName, fileName, data, &tuple_size);
 	bool pass = false;
 	do {
 
-		getFreeSpace(catalog_buffer, &freeSpace);
+		getFreeSpace(catalog_buffer, freeSpace);
 		if (freeSpace >= tuple_size + 4) { // enough space to write
 			writeTo(catalog_buffer, data, tuple_size);
 			pass = true;
@@ -1013,9 +1021,9 @@ RC RM::createTable(const string tableName, const vector<Attribute> &attrs) {
 				createNewPage(column_buffer);
 				freeSpace = PF_PAGE_SIZE - 4;
 				writeFreeSpaceInHeaderPage(header_buffer, currentPage,
-						&freeSpace);
+						freeSpace);
 			}
-			getFreeSpaceInHeaderPage(header_buffer, currentPage, &freeSpace);
+			getFreeSpaceInHeaderPage(header_buffer, currentPage, freeSpace);
 			if (freeSpace < tuple_size + 4) {
 				if (dirty) {
 					columnHandle.WritePage(currentPage, column_buffer);
@@ -1027,7 +1035,7 @@ RC RM::createTable(const string tableName, const vector<Attribute> &attrs) {
 			}
 		} while (!pass);
 		freeSpace = freeSpace - tuple_size - 4;
-		writeFreeSpaceInHeaderPage(header_buffer, currentPage, &freeSpace);
+		writeFreeSpaceInHeaderPage(header_buffer, currentPage, freeSpace);
 		columnHandle.ReadPage(currentPage, column_buffer);
 		writeTo(column_buffer, data, tuple_size);
 		dirty = true;
@@ -1082,7 +1090,7 @@ RC RM::insertTuple(const string tableName, const void *data, RID &rid) {
 	currentPage = 1;
 	bool dirty = false;
 	bool pass = false;
-	int freeSpace;
+	short freeSpace;
 
 	do {
 		if (currentPage == N) {
@@ -1091,9 +1099,9 @@ RC RM::insertTuple(const string tableName, const void *data, RID &rid) {
 			}
 			createNewPage(content_buffer);
 			freeSpace = PF_PAGE_SIZE - 4;
-			writeFreeSpaceInHeaderPage(header_buffer, currentPage, &freeSpace);
+			writeFreeSpaceInHeaderPage(header_buffer, currentPage, freeSpace);
 		}
-		getFreeSpaceInHeaderPage(header_buffer, currentPage, &freeSpace);
+		getFreeSpaceInHeaderPage(header_buffer, currentPage, freeSpace);
 		if (freeSpace < tuple_size + 4) {
 			if (dirty) {
 				tableFileHandle.WritePage(currentPage, content_buffer);
@@ -1106,7 +1114,7 @@ RC RM::insertTuple(const string tableName, const void *data, RID &rid) {
 	} while (!pass);
 
 	freeSpace = freeSpace - tuple_size - 4;
-	writeFreeSpaceInHeaderPage(header_buffer, currentPage, &freeSpace);
+	writeFreeSpaceInHeaderPage(header_buffer, currentPage, freeSpace);
 	tableFileHandle.ReadPage(currentPage, content_buffer);
 	writeTo(content_buffer, temp_data, tuple_size);
 	dirty = true;
@@ -1137,7 +1145,7 @@ RC RM::deleteTuple(const string tableName, const RID &rid) {
 
 //get tuple rid.slotNum and write -1 to offset of rid.slotNum
 //offset of the slotNum's offset
-	writeSpecificOffset(buffer, (int) rid.slotNum, (int*) &offset);
+	writeSpecificOffset(buffer, (short) rid.slotNum,  offset);
 
 //Nhu vay la da dat offset cua slotNum bang -1
 
@@ -1200,7 +1208,7 @@ RC RM::reorganizeTable(const string tableName) {
 }
 
 RM_ScanIterator::RM_ScanIterator() {
-	RecordManager = RM::Instance();
+
 }
 
 RM_ScanIterator::~RM_ScanIterator() {
@@ -1210,23 +1218,26 @@ RM_ScanIterator::~RM_ScanIterator() {
 // "data" follows the same format as RM::insertTuple()
 
 RC RM_ScanIterator::getNextTuple(RID &rid, void *data) {
-	if (next == (result.size() -1)) return RM_EOF;
 
-	rid = result[next];
+
+
 	PF_FileHandle fileHandle;
+	RM* RecordManager  = RM::Instance();
 	RecordManager->getTableHandle(tableName,fileHandle);
 
 	void * buffer = malloc (PF_PAGE_SIZE);
-	fileHandle.ReadPage(rid.pageNum, buffer);
+	//fileHandle.ReadPage(, buffer);
 	int offset, length;
-	getSpecificOffset(buffer,rid.slotNum,&offset);
-	getSpecificLength(buffer,rid.slotNum,&length);
+	//getSpecificOffset(buffer,rid.slotNum,&offset);
+	//getSpecificLength(buffer,rid.slotNum,&length);
 
 	void * tuple = malloc (PF_PAGE_SIZE);
 
+	short schema;
 
 	vector<Attribute> attributes;
-	RecordManager->getAttributesOfSchema(tableName,attributes,);
+
+	//RecordManager->getAttributesOfSchema(tableName,attributes,schema);
 	return RM_EOF;
 }
 
