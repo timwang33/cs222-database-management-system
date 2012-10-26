@@ -75,6 +75,7 @@ typedef short twobytes;
 //  rmScanIterator.close();
 
 const int zero =0;
+
 class RM_ScanIterator {
 public:
 	RM_ScanIterator();
@@ -85,10 +86,9 @@ public:
 	RC close();
 
 private:
-	RM * RecordManager;
-	vector<RID> result;
+
 	string tableName;
-	unsigned int next;
+
 };
 
 // Record Manager
@@ -167,6 +167,8 @@ private:
 	vector<tableHandle> allTables;
 
 };
+
+
 
 #endif
 
