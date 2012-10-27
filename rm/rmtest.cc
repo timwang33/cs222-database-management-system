@@ -459,10 +459,7 @@ void Tests()
 int main()
 {
     // Basic Functions
-	void * tuple =malloc(100);
-	int size;
-	prepareTuple(6, "Newman", 10, 67, 100, tuple, &size);
-	printTuple(tuple,size);
+
 
 	// RM *test = RM::Instance();
 	cout << endl << "Test Basic Functions..." << endl;
