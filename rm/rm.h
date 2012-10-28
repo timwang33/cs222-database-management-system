@@ -37,6 +37,7 @@ struct Attribute {
 	string name; // attribute name
 	AttrType type; // attribute type
 	AttrLength length; // attribute length
+	unsigned position;
 };
 
 struct tableHandle {
@@ -63,7 +64,7 @@ typedef short twobytes;
 # define column_file_name  "column.data"
 # define unit sizeof(short)
 # define END_OF_PAGE PF_PAGE_SIZE
-
+# define debug true;
 # define RM_EOF (-1)  // end of a scan operator
 // RM_ScanIterator is an iteratr to go through records
 // The way to use it is like the following:
@@ -138,13 +139,13 @@ public:
 
 	RC getTableHandle(const string tableName, PF_FileHandle &handle);
 
-	RC getAttributeFromColumnFile(void * data, Attribute & att, int index);
+	RC getAttributeFromColumnFile(void * data, Attribute &att, int index);
 
-	RC getLatestSchema(const string tableName, int* schema);
+	RC getLatestSchema(const string tableName, short &result);
 
-	RC getAttributesAndSchema(const string tableName, vector<Attribute> &attrs, int& schema);
+	RC getAttributesAndSchema(const string tableName, vector<Attribute> &attrs, unsigned& schema);
 
-	RC getAttributesOfSchema(const string tableName, vector<Attribute> &attrs, short schema);
+	RC getAttributesOfSchema(const string tableName, vector<Attribute> &attrs, unsigned schema);
 // Extra credit
 public:
 	RC dropAttribute(const string tableName, const string attributeName);
