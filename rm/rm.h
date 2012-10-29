@@ -52,8 +52,7 @@ typedef enum {
 	LE_OP, // <=
 	GE_OP, // >=
 	NE_OP, // !=
-	NO_OP
-// no condition
+	NO_OP // no condition
 } CompOp;
 
 
