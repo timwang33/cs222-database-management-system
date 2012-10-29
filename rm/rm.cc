@@ -183,9 +183,6 @@ RC getColumnTuple(unsigned *schema, const string tableName, Attribute *attr,
 	return EOF;
 }
 
-
-
-
 void prepareCatalogTuple(const string name, const string filename, void *buffer,
 		short *tuple_size) {
 	short offset = 0;
@@ -336,10 +333,11 @@ RC RM::getAttributesAndSchema(const string tableName, vector<Attribute> &attrs,
 				if (old_Schema == 32767) {
 					old_Schema = schema_Column;
 					schema = schema_Column;
-					attrs.push_back(attr);
 				}
 				if (old_Schema != schema_Column)
 					finished = true;
+				else
+					attrs.push_back(attr);
 			} else {
 				if (attrs.size() >= 1)
 					finished = true;
@@ -474,10 +472,11 @@ RC RM::getAttributes(const string tableName, vector<Attribute> &attrs) {
 			if (rc == RC_SUCCESS) {
 				if (old_Schema == 32767) {
 					old_Schema = schema_Column;
-					attrs.push_back(attr);
 				}
 				if (old_Schema != schema_Column)
 					finished = true;
+				else
+					attrs.push_back(attr);
 			} else {
 				if (attrs.size() >= 1)
 					finished = true;
@@ -573,7 +572,7 @@ void insertSchema(void * tuple, int schema, int tuple_size) {
 	free(temp);
 }
 
-void getDataSize(void *data, vector<Attribute> attrs, int *tuple_size,
+void getDataSize(const void *data, vector<Attribute> attrs, int *tuple_size,
 		bool hasSchema) {
 
 	int length_var_char;
@@ -719,7 +718,8 @@ RC RM::openTable(const string tableName, PF_FileHandle &tableHdl) {
 		}
 	}
 
-	fileManager->OpenFile(tableName.c_str(), tableHdl);
+	string fileName = tableName + ".data";
+	fileManager->OpenFile(fileName.c_str(), tableHdl);
 
 	tableHandle newTable;
 	newTable.name = tableName;
@@ -1038,7 +1038,17 @@ RC RM::createTable(const string tableName, const vector<Attribute> &attrs) {
 	string fileName = tableName + ".data";
 	fileManager->CreateFile(fileName.c_str());
 
-	openTable(tableName);
+	PF_FileHandle tableFileHandle;
+	openTable(tableName, tableFileHandle);
+	void *datafile_buffer = malloc(PF_PAGE_SIZE);
+
+	writeFreeSpaceInHeaderPage(datafile_buffer, 0, PF_PAGE_SIZE - 4);
+	writeFreeSpaceInHeaderPage(datafile_buffer, 1, PF_PAGE_SIZE - 4);
+	tableFileHandle.WritePage(0, datafile_buffer);
+	createNewPage(datafile_buffer);
+	tableFileHandle.WritePage(1, datafile_buffer);
+	free(datafile_buffer);
+
 	short test;
 	short tuple_size;
 	short freeSpace;
@@ -1247,15 +1257,17 @@ RC RM::insertTuple(const string tableName, const void *data, RID &rid) {
 	PageNum N = tableFileHandle.GetNumberOfPages();
 	PageNum currentPage;
 
-	short schema;
+	unsigned latest_schema;
 	vector<Attribute> tableAttributes;
 
-	//getAttributesAndSchema(tableName, tableAttributes, schema);
+	// get latest attributes and latest schema
+	getAttributesAndSchema(tableName, tableAttributes, latest_schema);
 
 	int tuple_size = 0;
 
 	getDataSize((void*) data, tableAttributes, &tuple_size, false);
 
+	short schema = (short) latest_schema;
 	//write schema to the begin of temp_data, which takes 2 bytes
 	memcpy((char*) temp_data, &schema, unit);
 	//write data to temp_data, from byte 3th to (byte (3 + tuple_size)th
@@ -1269,20 +1281,13 @@ RC RM::insertTuple(const string tableName, const void *data, RID &rid) {
 
 	do {
 		if (currentPage == N) {
-			if (dirty) {
-				tableFileHandle.WritePage(currentPage - 1, content_buffer);
-			}
 			createNewPage(content_buffer);
 			freeSpace = PF_PAGE_SIZE - 4;
 			writeFreeSpaceInHeaderPage(header_buffer, currentPage, freeSpace);
 		}
 		getFreeSpaceInHeaderPage(header_buffer, currentPage, freeSpace);
 		if (freeSpace < tuple_size + 4) {
-			if (dirty) {
-				tableFileHandle.WritePage(currentPage, content_buffer);
-			}
 			currentPage++;
-
 		} else {
 			pass = true;
 		}
@@ -1292,7 +1297,11 @@ RC RM::insertTuple(const string tableName, const void *data, RID &rid) {
 	writeFreeSpaceInHeaderPage(header_buffer, currentPage, freeSpace);
 	tableFileHandle.ReadPage(currentPage, content_buffer);
 	writeTo(content_buffer, temp_data, tuple_size);
-	dirty = true;
+
+	short entries;
+	getTotalEntries(content_buffer, entries);
+	rid.slotNum = entries;
+	rid.pageNum = currentPage;
 
 	tableFileHandle.WritePage(0, header_buffer);
 	tableFileHandle.WritePage(currentPage, content_buffer);
@@ -1321,11 +1330,12 @@ RC RM::deleteTuples(const string tableName) {
 		//read number of column tuple on page i
 		getTotalEntries(buffer, N);
 		//memcpy(&N, (char*) buffer + offset - sizeof(short), sizeof(short));
-		offset = offset - sizeof(short);
+		//offset = offset - sizeof(short);
 		//write -1 to all offset
 		for (int i = 1; i <= N; i++) {
 			writeSpecificOffset(buffer, i, offset);
 		}
+		fileHandle.WritePage(i,buffer);
 	}
 	return 0;
 }
@@ -1354,8 +1364,115 @@ RC RM::deleteTuple(const string tableName, const RID &rid) {
 
 // Assume the rid does not change after update
 RC RM::updateTuple(const string tableName, const void *data, const RID &rid) {
-	return 0;
+
+	PF_FileHandle fileHandle;
+	getTableHandle(tableName, fileHandle);
+
+	void * buffer;
+	buffer = malloc(PF_PAGE_SIZE);
+	fileHandle.ReadPage(rid.pageNum, buffer);
+	void *temp_data = malloc(PF_PAGE_SIZE);
+	short length, offset, size, freeSpace, lastOffset, lastLength;
+	getSpecificOffset(buffer, rid.slotNum, offset);
+	getSpecificLength(buffer, rid.slotNum, length);
+	vector<Attribute> attrs;
+	unsigned temp_schema;
+	short schema;
+	getAttributesAndSchema(tableName, attrs, temp_schema);
+	schema = (short) temp_schema;
+	int tuple_size;
+	getDataSize(data, attrs, &tuple_size, false);
+
+	//write schema to the begin of temp_data, which takes 2 bytes
+	memcpy((char*) temp_data, &schema, unit);
+	//write data to temp_data, from byte 3th to (byte (3 + tuple_size)th
+	memcpy((char*) temp_data + unit, (char*) data, tuple_size);
+	tuple_size += 2;
+	if (tuple_size <= length) {
+		//Chi viec ghi thay vao tuple
+		//writeTo(buffer, data, size);
+		//copy data vao buffer
+		writeSpecificLength(buffer, rid.slotNum, (short) tuple_size);
+		memcpy((char*) buffer + offset, temp_data, tuple_size);
+		fileHandle.WritePage(rid.pageNum, buffer);
+		free(buffer);
+		return RC_SUCCESS;
+	} else {
+		getFreeSpace(buffer, freeSpace);
+		if (tuple_size <= freeSpace)
+		//Chi can <= freeSpace, ko can + 4 vi ghi vao slot cu
+				{
+			//tao them mot tuple moi tuong ung voi data
+			getLastOffset(buffer, lastOffset);
+			getLastLength(buffer, lastLength);
+			//ghi data vao lastOffset
+			memcpy((char*) buffer + lastOffset + lastLength, temp_data,
+					tuple_size);
+			//update directory, write offset and length
+			writeSpecificOffset(buffer, rid.slotNum, lastOffset + lastLength);
+			writeSpecificLength(buffer, rid.slotNum, tuple_size);
+			fileHandle.WritePage(rid.pageNum, buffer);
+			free(buffer);
+			return RC_SUCCESS;
+		} else {
+
+			RID newRID;
+
+			insertTuple(tableName, data, newRID);
+			writeSpecificLength(buffer, rid.slotNum, -6);
+			memcpy((char*) buffer + offset, (short*) &newRID.pageNum, unit);
+			memcpy((char*) buffer + offset + unit,(short*) &newRID.slotNum
+					,unit);
+			fileHandle.WritePage(rid.pageNum, buffer);
+			free(buffer);
+			return RC_SUCCESS;
+		}
+	}
+	free(buffer);
+	return RC_FAIL;
 }
+/*
+ //Find page to store the updated tuple;
+ void * header_buffer = malloc(PF_PAGE_SIZE);
+ void * temp_buffer = malloc(PF_PAGE_SIZE);
+ fileHandle.ReadPage(0,header_buffer);
+ bool pass = false;
+ bool newPage = false;
+ short currentPage=1;
+ do {
+ if ((unsigned)currentPage == fileHandle.GetNumberOfPages()) {
+ createNewPage(temp_buffer);
+ newPage = true;
+ writeFreeSpaceInHeaderPage(header_buffer,currentPage,PF_PAGE_SIZE-4);
+ }
+ getFreeSpaceInHeaderPage(header_buffer,currentPage,freeSpace);
+ if ((short) (tuple_size+4) <= freeSpace)
+ pass= true;
+ else
+ currentPage ++;
+ }while (!pass);
+
+ if (!newPage)
+ fileHandle.ReadPage(currentPage,temp_buffer);
+ void * temp_data = malloc()
+ writeTo(temp_buffer, data,(short)tuple_size);
+ short entries;
+ getTotalEntries(temp_buffer,entries);
+
+ //change noi dung cua rid tuple, noi dung cua no se chua rid cua data
+ short page_data, slot_data;
+ page_data = fileHandle.GetNumberOfPages();
+ slot_data = 1;
+
+ //cap nhat noi dung cua
+
+ memcpy((char*) buffer + offset, &page_data, 2);
+ memcpy((char*) buffer + offset + 2, &slot_data, 2);
+ fileHandle.WritePage(rid.pageNum, buffer);
+ //Nhu vay noi dung cua record cu se chua 4 byte dau la rid cua data trong trang moi
+ }
+ }
+ */
 
 RC RM::readTuple(const string tableName, const RID &rid, void *data) {
 	PF_FileHandle fileHandle;
@@ -1366,15 +1483,32 @@ RC RM::readTuple(const string tableName, const RID &rid, void *data) {
 
 	fileHandle.ReadPage(rid.pageNum, buffer);
 	getTotalEntries(buffer, N);
-	//freeSpace of page i
-	getFreeSpace(buffer, freeSpace);
-	//or
+
 	getSpecificOffset(buffer, rid.slotNum, offset);
+
 	getSpecificLength(buffer, rid.slotNum, length);
+	if (offset == EOF) { // tuple got marked deleted
+		memset(data, 0, length);
+		return RC_FAIL;
+	}
+
+	if (length == -6) {
+
+		short temp;
+		RID newRID;
+		memcpy(&temp, (char*) buffer + offset, unit);
+		newRID.pageNum = (unsigned) temp;
+		memcpy(&temp, (char*) buffer + offset + unit,unit);
+		newRID.slotNum = (unsigned) temp;
+		return readTuple(tableName, newRID, data);
+	}
+	//chop off 2 bytes of schema
+	offset += unit;
+	length -= unit;
 	memcpy(data, (char*) buffer + offset, length);
 	free(buffer);
-	return 0;
-	return 0;
+	return RC_SUCCESS;
+
 }
 
 RC RM::readAttribute(const string tableName, const RID &rid,
@@ -1387,28 +1521,74 @@ RC RM::readAttribute(const string tableName, const RID &rid,
 	short offset, length, N, freeSpace;
 
 	void * buffer = malloc(PF_PAGE_SIZE);
-	void *temp = malloc(100);
+	void *temp = malloc(200);
 
 	//get attributeName
 	getTableHandle(tableName, fileHandle);
-	getAttributes(tableName, attrs);
-	int index;
-	for (int i = 0; i < (int) attrs.size(); i++) {
-		if (strcmp(attrs[i].name.c_str(), attributeName.c_str())) {
-			attr = attrs[i];
-			index = i;
-			break;
+	fileHandle.ReadPage(rid.pageNum, buffer);
+
+	getSpecificOffset(buffer, rid.slotNum, offset);
+	getSpecificLength(buffer, rid.slotNum, length);
+	memcpy(temp, (char*) buffer + offset, length);
+	short schema;
+	memcpy(&schema, (char*) buffer, unit);
+	unsigned temp_sch;
+
+	getAttributesAndSchema(tableName, attrs, temp_sch);
+	offset = 2;
+	if (schema == (short) temp_sch) {
+		int index;
+		int length_var_char;
+		for (int i = 0; i < (int) attrs.size(); i++) {
+			if (strcmp(attrs[i].name.c_str(), attributeName.c_str())
+					== RC_SUCCESS) {
+				switch (attrs[i].type) {
+				case TypeInt:
+				case TypeReal:
+					memcpy((char*) data, (char*)temp +offset,4);
+					break;
+				case TypeVarChar:
+					memcpy(&length_var_char, (char*) temp + offset, 4);
+					memcpy((char*) data, (char*)temp +offset,length_var_char+4);
+					break;
+				default:
+					cerr << "Error decoding attrs[i]" << endl;
+					break;
+				}
+				index = i;
+				break;
+			} else {
+
+				switch (attrs[i].type) {
+				case TypeInt:
+				case TypeReal:
+					offset += 4;
+					break;
+				case TypeVarChar:
+					memcpy(&length_var_char, (char*) temp + offset, 4);
+					offset = offset + 4 + length_var_char;
+					break;
+				default:
+					cerr << "Error decoding attrs[i]" << endl;
+					break;
+				}
+
+			}
 		}
 	}
+	// if schema is not the latest schema, do something else
+	free(buffer);
+	free(temp);
 
-	fileHandle.ReadPage(rid.pageNum, buffer);
+	return 0;
+
+}
+
+	/*
 	getTotalEntries(buffer, N);
 	//freeSpace of page i
 	getFreeSpace(buffer, freeSpace);
 	//or
-	getSpecificOffset(buffer, rid.slotNum, offset);
-	getSpecificLength(buffer, rid.slotNum, length);
-	memcpy(temp, (char*) buffer + offset, length);
 
 	// find out offset of this Attribute in temp bytesequence
 	short size = 0;
@@ -1426,12 +1606,9 @@ RC RM::readAttribute(const string tableName, const RID &rid,
 	//get Vector<Attribute>
 	// compare with attributeName, find the offset & size of attribute
 	// memcpy(data, tuple+offset,size
-	free(buffer);
-	free(temp);
+	 * */
 
-	return 0;
 
-}
 
 RC RM::reorganizePage(const string tableName, const unsigned pageNumber) {
 	return 0;

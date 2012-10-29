@@ -209,11 +209,11 @@ void secA_2(const string tablename, const int name_length, const string name, co
     // Compare the two memory blocks to see whether they are different
     if (memcmp(tuple, data_returned, tuple_size) != 0)
     {
-        cout << "****Test case 2 passed****" << endl << endl;
+        cout << "****Test case 2 passed****" << endl ;
     }
     else
     {
-        cout << "****Test case 2 failed****" << endl << endl;
+        cout << "****Test case 2 failed****" << endl ;
     }
 
     free(tuple);
