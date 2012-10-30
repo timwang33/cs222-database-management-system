@@ -142,7 +142,7 @@ RC getColumnTuple(unsigned *schema, const string tableName, Attribute *attr,
 
 	//check if this column belong to tableName table
 
-	if (memcmp(name, tableName.c_str(), tableName.size()) != 0) {
+	if (memcmp(name, tableName.c_str(), tableName.length()) != 0) {
 		free(name);
 		return RC_FAIL;
 	}
@@ -317,7 +317,7 @@ RC RM::getAttributesAndSchema(const string tableName, vector<Attribute> &attrs,
 		getTotalEntries(buffer, N);
 
 		index = N;
-		while (index > 0 || !finished) {
+		while (index > 0 && !finished) {
 
 			getSpecificOffset(buffer, index, offset);
 			getSpecificLength(buffer, index, length);
@@ -704,7 +704,7 @@ void getFreeSpaceInHeaderPage(void * buffer, short index, short &value) {
 	//value = *((short*) buffer + offset);
 }
 RC RM::openTable(const string tableName, PF_FileHandle &tableHdl) {
-
+	string fileName = tableName + ".data";
 	for (int i = 0; i < (int) allTables.size(); i++) {
 		if (strcmp(tableName.c_str(), allTables[i].name.c_str())
 				== RC_SUCCESS) {
@@ -712,13 +712,13 @@ RC RM::openTable(const string tableName, PF_FileHandle &tableHdl) {
 				tableHdl = allTables[i].fileHandle;
 				return RC_SUCCESS;
 			} else {
-				fileManager->OpenFile(tableName.c_str(), tableHdl);
+				fileManager->OpenFile(fileName.c_str(), tableHdl);
 				return RC_SUCCESS;
 			}
 		}
 	}
 
-	string fileName = tableName + ".data";
+
 	fileManager->OpenFile(fileName.c_str(), tableHdl);
 
 	tableHandle newTable;
@@ -1335,7 +1335,7 @@ RC RM::deleteTuples(const string tableName) {
 		for (int i = 1; i <= N; i++) {
 			writeSpecificOffset(buffer, i, offset);
 		}
-		fileHandle.WritePage(i,buffer);
+		fileHandle.WritePage(i, buffer);
 	}
 	return 0;
 }
@@ -1545,11 +1545,12 @@ RC RM::readAttribute(const string tableName, const RID &rid,
 				switch (attrs[i].type) {
 				case TypeInt:
 				case TypeReal:
-					memcpy((char*) data, (char*)temp +offset,4);
+					memcpy((char*) data, (char*) temp + offset, 4);
 					break;
 				case TypeVarChar:
 					memcpy(&length_var_char, (char*) temp + offset, 4);
-					memcpy((char*) data, (char*)temp +offset,length_var_char+4);
+					memcpy((char*) data, (char*) temp + offset,
+							length_var_char + 4);
 					break;
 				default:
 					cerr << "Error decoding attrs[i]" << endl;
@@ -1584,31 +1585,29 @@ RC RM::readAttribute(const string tableName, const RID &rid,
 
 }
 
-	/*
-	getTotalEntries(buffer, N);
-	//freeSpace of page i
-	getFreeSpace(buffer, freeSpace);
-	//or
+/*
+ getTotalEntries(buffer, N);
+ //freeSpace of page i
+ getFreeSpace(buffer, freeSpace);
+ //or
 
-	// find out offset of this Attribute in temp bytesequence
-	short size = 0;
-	for (int i = 0; i < index; i++) {
-		getSizeOfAttribute((char*) temp + offsetofAttribute, attrs[i], size);
-		offsetofAttribute += size;
-	}
+ // find out offset of this Attribute in temp bytesequence
+ short size = 0;
+ for (int i = 0; i < index; i++) {
+ getSizeOfAttribute((char*) temp + offsetofAttribute, attrs[i], size);
+ offsetofAttribute += size;
+ }
 
-	// find out length of this Attribute in temp bytesequence
-	getSizeOfAttribute((char*) temp + offsetofAttribute, attrs[index],
-			lengthOfAttribute);
+ // find out length of this Attribute in temp bytesequence
+ getSizeOfAttribute((char*) temp + offsetofAttribute, attrs[index],
+ lengthOfAttribute);
 
-	memcpy((char*) data, (char*) temp + offsetofAttribute, lengthOfAttribute);
-	// read tuple rid
-	//get Vector<Attribute>
-	// compare with attributeName, find the offset & size of attribute
-	// memcpy(data, tuple+offset,size
-	 * */
-
-
+ memcpy((char*) data, (char*) temp + offsetofAttribute, lengthOfAttribute);
+ // read tuple rid
+ //get Vector<Attribute>
+ // compare with attributeName, find the offset & size of attribute
+ // memcpy(data, tuple+offset,size
+ * */
 
 RC RM::reorganizePage(const string tableName, const unsigned pageNumber) {
 	return 0;
@@ -1620,7 +1619,43 @@ RC RM::scan(const string tableName, const string conditionAttribute,
 		const void *value, // used in the comparison
 		const vector<string> &attributeNames, // a list of projected attributes
 		RM_ScanIterator &rm_ScanIterator) {
-	return 0;
+
+	openTable(tableName, rm_ScanIterator.dataFileHandle);
+	vector<Attribute> attrs;
+	getAttributes(tableName, attrs);
+	memcpy((char*) rm_ScanIterator.tableName.c_str(), (char*) tableName.c_str(),
+			tableName.length());
+	rm_ScanIterator.tableName[tableName.length()] = '\0';
+
+	rm_ScanIterator.cond_position = 0;
+	bool out = false;
+	int size;
+	for (unsigned i = 0; i < attrs.size(); i++) {
+		if (!out
+				&& strcmp(attrs[i].name.c_str(), conditionAttribute.c_str())
+						== RC_SUCCESS) {
+			rm_ScanIterator.cond_position = attrs[i].position;
+			out = true;
+			size = attrs[i].length + 4;
+		}
+		for (unsigned j = 0; j < attributeNames.size(); j++) {
+			if (strcmp(attrs[i].name.c_str(), attributeNames[j].c_str())
+					== RC_SUCCESS) {
+				rm_ScanIterator.projected_position.push_back(attrs[i].position);
+
+			}
+
+		}
+	}
+	if (value != NULL) {
+		rm_ScanIterator.value = malloc(size);
+		memcpy(rm_ScanIterator.value, (char*) value, size);
+	}
+
+	rm_ScanIterator.operation = compOp;
+
+	return RC_SUCCESS;
+
 }
 
 // Extra credit
@@ -1639,6 +1674,8 @@ RC RM::reorganizeTable(const string tableName) {
 }
 
 RM_ScanIterator::RM_ScanIterator() {
+	currentPage = 1;
+	currentSlot = 1;
 
 }
 
@@ -1646,31 +1683,330 @@ RM_ScanIterator::~RM_ScanIterator() {
 
 }
 
+bool isIn(unsigned int num, vector<unsigned int> &vector_int) {
+	for (unsigned i = 0; i < vector_int.size(); i++) {
+		if (num == vector_int[i])
+			return true;
+	}
+	return false;
+}
+
 // "data" follows the same format as RM::insertTuple()
 
 RC RM_ScanIterator::getNextTuple(RID &rid, void *data) {
 
-	PF_FileHandle fileHandle;
-	RM* RecordManager = RM::Instance();
-	RecordManager->getTableHandle(tableName, fileHandle);
-
+	RM* recordManager = RM::Instance();
+	if (currentPage == (short) dataFileHandle.GetNumberOfPages())
+		return EOF;
 	void * buffer = malloc(PF_PAGE_SIZE);
-	//fileHandle.ReadPage(, buffer);
-	int offset, length;
-	//getSpecificOffset(buffer,rid.slotNum,&offset);
-	//getSpecificLength(buffer,rid.slotNum,&length);
+	bool pass = false;
+	short total;
+	do {
+		if (currentPage == (short) dataFileHandle.GetNumberOfPages())
+			return EOF;
 
-	void * tuple = malloc(PF_PAGE_SIZE);
+		dataFileHandle.ReadPage(currentPage, buffer);
+		getTotalEntries(buffer, total);
+		if (currentSlot <= total)
+			pass = true;
+		else
+			currentPage++;
 
-	short schema;
+	} while (!pass);
+	short offset, length;
+	pass = false;
+	do
+	{
+		getSpecificOffset(buffer, currentSlot, offset);
+		if (offset == -1)
+			currentSlot++;
+		else {
+			getSpecificLength(buffer, currentSlot, length);
+			if (length == -6) { //find the new location
 
-	vector<Attribute> attributes;
+			} else { // normal tuple
+				void * tuple = malloc(PF_PAGE_SIZE);
 
-	//RecordManager->getAttributesOfSchema(tableName,attributes,schema);
-	return RM_EOF;
-}
+				memcpy(tuple, (char*) buffer + offset, length);
 
-RC RM_ScanIterator::close() {
-	return -1;
-}
+				short schema;
+				short data_offset;
+				unsigned latest_schema;
+				memcpy(&schema, (char*) tuple, unit);
+				data_offset = 2;
+				vector<Attribute> attributes;
+				int value_size;
+				AttrType value_type;
+				void * tuple_value;
+
+				recordManager->getAttributesAndSchema(tableName, attributes,
+						latest_schema);
+
+				if (schema == (short) latest_schema) { // no changing in schema
+					// parse data from tuple
+					if (cond_position == 0) { // no condition
+
+					} else {
+						for (unsigned i = 0; i < attributes.size(); i++) {
+							if (attributes[i].position == cond_position) {
+								value_type = attributes[i].type;
+								switch (attributes[i].type) {
+								case TypeInt:
+								case TypeReal:
+									value_size = 4;
+									break;
+								case TypeVarChar:
+									memcpy(&value_size,
+											(char*) tuple + data_offset, 4);
+									value_size += 4;
+									break;
+								}
+								tuple_value = malloc(value_size);
+								memcpy(tuple_value, (char*) tuple + data_offset,
+										value_size);
+
+							} else {
+								switch (attributes[i].type) {
+								case TypeInt:
+								case TypeReal:
+									data_offset += 4;
+									break;
+								case TypeVarChar:
+									memcpy(&value_size,
+											(char*) tuple + data_offset, 4);
+									data_offset = data_offset + 4
+											+ (short) value_size;
+									break;
+								}
+							}
+						}
+					}
+					// do compare
+					RC rc = compare(tuple_value, value, value_size, value_type);
+					if (rc == RC_SUCCESS) {
+						void * result = malloc(PF_PAGE_SIZE);
+						int result_size=0;
+						int result_offset=0;
+						data_offset = 2;
+						for (unsigned i = 0; i < attributes.size(); i++) {
+							if (isIn(attributes[i].position, projected_position)
+									== true) {
+								switch (attributes[i].type) {
+								case TypeInt:
+								case TypeReal:
+									value_size = 4;
+									break;
+								case TypeVarChar:
+									memcpy(&value_size,
+											(char*) tuple + data_offset, 4);
+									value_size += 4;
+									break;
+								}
+								memcpy((char*)result+result_offset, (char*) tuple + data_offset,
+										value_size);
+								data_offset+= value_size;
+								result_offset+=value_size;
+
+							} else {
+								switch (attributes[i].type) {
+								case TypeInt:
+								case TypeReal:
+									data_offset += 4;
+									break;
+								case TypeVarChar:
+									memcpy(&value_size,
+											(char*) tuple + data_offset, 4);
+									data_offset = data_offset + 4
+											+ (short) value_size;
+									break;
+								}
+							}
+						}
+						rid.pageNum = currentPage;
+						rid.slotNum =  currentSlot;
+						memcpy(data,result,result_offset);
+								pass = true;
+							}
+else						currentSlot ++;
+
+					}
+					else { // changes in schema!
+
+					}
+				}
+
+			}
+		}
+			while (!pass);
+			return RM_EOF;
+		}
+
+		RC RM_ScanIterator::compare(void *tuple, void* value, int tuple_size,
+				AttrType type) {
+			switch (type) {
+			case TypeInt:
+				int int1;
+				memcpy(&int1, (char*) tuple, tuple_size);
+				int int2;
+				memcpy(&int2, (char*) value, tuple_size);
+				switch (operation) {
+				case EQ_OP:
+					if (int1 == int2)
+						return RC_SUCCESS;
+					else
+						return RC_FAIL;
+					break;
+				case LT_OP:
+					if (int1 < int2)
+						return RC_SUCCESS;
+					else
+						return RC_FAIL;
+					break;
+				case GT_OP:
+					if (int1 > int2)
+						return RC_SUCCESS;
+					else
+						return RC_FAIL;
+					break;
+				case LE_OP:
+					if (int1 <= int2)
+						return RC_SUCCESS;
+					else
+						return RC_FAIL;
+					break;
+				case GE_OP:
+					if (int1 >= int2)
+						return RC_SUCCESS;
+					else
+						return RC_FAIL;
+					break;
+				case NE_OP:
+					if (int1 != int2)
+						return RC_SUCCESS;
+					else
+						return RC_FAIL;
+					break;
+				case NO_OP:
+					return RC_SUCCESS;
+					break;
+
+				}
+				break;
+			case TypeReal:
+				float real1;
+				memcpy(&real1, (char*) tuple, tuple_size);
+				float real2;
+				memcpy(&real2, (char*) value, tuple_size);
+				switch (operation) {
+				case EQ_OP:
+					if (real1 == real2)
+						return RC_SUCCESS;
+					else
+						return RC_FAIL;
+					break;
+				case LT_OP:
+					if (real1 < real2)
+						return RC_SUCCESS;
+					else
+						return RC_FAIL;
+					break;
+				case GT_OP:
+					if (real1 > real2)
+						return RC_SUCCESS;
+					else
+						return RC_FAIL;
+					break;
+				case LE_OP:
+					if (real1 <= real2)
+						return RC_SUCCESS;
+					else
+						return RC_FAIL;
+					break;
+				case GE_OP:
+					if (real1 >= real2)
+						return RC_SUCCESS;
+					else
+						return RC_FAIL;
+					break;
+				case NE_OP:
+					if (real1 != real2)
+						return RC_SUCCESS;
+					else
+						return RC_FAIL;
+					break;
+				case NO_OP:
+					return RC_SUCCESS;
+					break;
+
+				}
+				break;
+			case TypeVarChar:
+				int len1;
+				memcpy(&len1, (char*) tuple, 4);
+				int len2;
+				memcpy(&len2, (char*) value, 4);
+				char* str1;
+				memcpy(str1, (char*) tuple, len1);
+				str1[len1] = '\0';
+				char* str2;
+				memcpy(str2, (char*) value, len2);
+				str2[len2] = '\0';
+				int cmp_ret = strcmp(str1, str2);
+				switch (operation) {
+				case EQ_OP:
+					if (cmp_ret == RC_SUCCESS
+					)
+						return RC_SUCCESS;
+					else
+						return RC_FAIL;
+					break;
+				case LT_OP:
+					if (cmp_ret < RC_SUCCESS
+					)
+						return RC_SUCCESS;
+					else
+						return RC_FAIL;
+					break;
+				case GT_OP:
+					if (cmp_ret > RC_SUCCESS
+					)
+						return RC_SUCCESS;
+					else
+						return RC_FAIL;
+					break;
+				case LE_OP:
+					if (cmp_ret <= RC_SUCCESS
+					)
+						return RC_SUCCESS;
+					else
+						return RC_FAIL;
+					break;
+				case GE_OP:
+					if (cmp_ret >= RC_SUCCESS
+					)
+						return RC_SUCCESS;
+					else
+						return RC_FAIL;
+					break;
+				case NE_OP:
+					if ((cmp_ret != RC_SUCCESS))
+						return RC_SUCCESS;
+					else
+						return RC_FAIL;
+					break;
+				case NO_OP:
+					return RC_SUCCESS;
+					break;
+
+				}
+				break;
+			}
+
+		}
+		RC RM_ScanIterator::close() {
+			projected_position.clear();
+			memset((void*) tableName.c_str(), 0, tableName.size());
+			free(value);
+			return RC_SUCCESS;
+		}
 

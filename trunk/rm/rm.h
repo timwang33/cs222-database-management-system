@@ -84,10 +84,19 @@ public:
 	// "data" follows the same format as RM::insertTuple()
 	RC getNextTuple(RID &rid, void *data);
 	RC close();
+	RC compare(void *tuple, void* value, int tuple_size,AttrType type);
+
+
+	unsigned int cond_position;
+	string tableName;
+	vector<unsigned int> projected_position;
+	CompOp operation;
+	void * value;
+	PF_FileHandle dataFileHandle;
 
 private:
-
-	string tableName;
+short currentPage;
+short currentSlot;
 
 };
 
