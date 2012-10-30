@@ -63,7 +63,10 @@ typedef short twobytes;
 # define column_file_name  "column.data"
 # define unit sizeof(short)
 # define END_OF_PAGE PF_PAGE_SIZE
-# define debug true;
+# define debug true
+# define DATA_SIZE 500
+# define TOMBSTONE -6
+#define LENGTH_TOMBSTONE 6
 # define RM_EOF (-1)  // end of a scan operator
 // RM_ScanIterator is an iteratr to go through records
 // The way to use it is like the following:
@@ -85,7 +88,7 @@ public:
 	RC getNextTuple(RID &rid, void *data);
 	RC close();
 	RC compare(void *tuple, void* value, int tuple_size,AttrType type);
-
+	RC grabValidTuple(void * source, short slotNumber, void * data_returned);
 
 	unsigned int cond_position;
 	string tableName;
@@ -95,8 +98,13 @@ public:
 	PF_FileHandle dataFileHandle;
 
 private:
+	vector<Attribute> attributes;
 short currentPage;
 short currentSlot;
+bool switch_page;
+bool gotAttributes;
+void * buffer;
+short latest_schema;
 
 };
 
