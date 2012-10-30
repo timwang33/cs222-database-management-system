@@ -407,7 +407,8 @@ void secA_6(const string tablename)
     string attr = "Age";
     vector<string> attributes;
     attributes.push_back(attr);
-    rc = rm->scan(tablename, "", NO_OP, NULL, attributes, rmsi);
+    //rc = rm->scan(tablename, "", NO_OP, NULL, attributes, rmsi);
+    rc = rm->scan(tablename, attr, NO_OP, NULL, attributes, rmsi);
     assert(rc == success);
 
     cout << "Scanned Data:" << endl;
