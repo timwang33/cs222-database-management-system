@@ -66,8 +66,10 @@ typedef short twobytes;
 # define debug true
 # define DATA_SIZE 500
 # define TOMBSTONE -6
-#define LENGTH_TOMBSTONE 6
+# define LENGTH_TOMBSTONE 6
 # define RM_EOF (-1)  // end of a scan operator
+
+#define NO_CONDITION_FOUND (-1000)
 // RM_ScanIterator is an iteratr to go through records
 // The way to use it is like the following:
 //  RM_ScanIterator rmScanIterator;
@@ -88,7 +90,7 @@ public:
 	RC getNextTuple(RID &rid, void *data);
 	RC close();
 	RC compare(void *tuple, void* value, int tuple_size,AttrType type);
-	RC grabValidTuple(void * source, short slotNumber, void * data_returned);
+	RC grabValidTuple(void * source, short slotNumber, void * data_returned, bool inSearch);
 
 	unsigned int cond_position;
 	string tableName;
@@ -105,6 +107,7 @@ bool switch_page;
 bool gotAttributes;
 void * buffer;
 short latest_schema;
+
 
 };
 
@@ -149,9 +152,12 @@ public:
 
 	RC openTable(const string tableName);
 
+
 	RC openTable(const string tableName, PF_FileHandle &handle);
 
 	RC closeTable(const string tableName);
+
+	RC hasTable(const string tableName);
 
 	RC getTableHandle(const string tableName, PF_FileHandle &handle);
 
@@ -162,8 +168,13 @@ public:
 	RC getAttributesAndSchema(const string tableName, vector<Attribute> &attrs, unsigned& schema);
 
 	RC getAttributesOfSchema(const string tableName, vector<Attribute> &attrs, unsigned schema);
+
+	RC printDataFromAttributes(void *data, vector<Attribute> &attrs);
+
+
+
 // Extra credit
-public:
+
 	RC dropAttribute(const string tableName, const string attributeName);
 
 	RC addAttribute(const string tableName, const Attribute attr);

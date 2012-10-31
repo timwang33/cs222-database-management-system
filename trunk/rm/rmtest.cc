@@ -424,7 +424,7 @@ void secA_7(const string tablename) {
 		tuples.push_back((char *) tuple);
 		sizes[i] = tuple_size;
 		rids[i] = rid;
-		printf("%d\n", rid.pageNum);
+		//printf("%d\n", rid.pageNum);
 	}
 	printf("After Insertion!\n");
 
@@ -481,22 +481,26 @@ void secA_9(const string tablename) {
 	RID rids[num_records];
 	vector<char *> tuples;
 	int sizes[num_records];
-
+vector<Attribute> Newattrs;
+rm->getAttributes(tablename, Newattrs);
 	int rc = 0;
 	// Insert 200 tuples into table
 	for (int i = 0; i < num_records; i++) {
 		// Test Insert Tuple
 		tuple = malloc(100);
 		prepareTuple(5, "Helen", 20 + i, 100 + i, 50000, tuple, &tuple_size);
+
 		rc = rm->insertTuple(tablename, tuple, rid);
-		if (rid.slotNum == 150)
-			cout <<"wait"<< endl;
+if(i==151)
+	cout <<"wait" <<endl << endl;
+
 		assert(rc == success);
 
 		tuples.push_back((char *) tuple);
 		rids[i] = rid;
 		sizes[i] = tuple_size;
 	}
+
 	printf("After Insertion!\n");
 	// Set up the scan iterator
 		RM_ScanIterator rmsi;
@@ -513,35 +517,59 @@ void secA_9(const string tablename) {
 		printf("Scanned Data:\n");
 
 		while (rmsi.getNextTuple(rid, data_returned) != RM_EOF) {
-			printf("Age: %d\n", *(int *) data_returned);
+			//printf("Age: %d\n", *(int *) data_returned);
 		}
 		rmsi.close();
 
 	// Read the first 100 tuples and update them
 	tuple = malloc(100);
 	for (int i = 0; i < 100; i++) {
+		//cout <<"Orignial" <<endl;
 		rc = rm->readTuple(tablename, rids[i], data_returned);
+		//rm->printDataFromAttributes(data_returned, Newattrs);
 		assert(rc == success);
-
+		if (i == 151){
+							cout <<"wait" <<endl;
+							cout << rids[i].pageNum << "& " << rids[i].slotNum << endl;
+							rc = rm->readTuple(tablename, rids[i], data_returned);
+							//rm->printDataFromAttributes(data_returned, Newattrs);
+						}
 		if (memcmp(data_returned, tuples[i], sizes[i]) != 0) {
 			printf("****Test case 9 failed in read tuples 1****\n\n");
+			cout << " at " << i <<endl;
 			return;
 		}
 
 		// Update the tuple
 		prepareTuple(6, "Thomas", 50 + i, 100 + i, 500000, tuple, &tuple_size);
 		rc = rm->updateTuple(tablename, tuple, rids[i]);
+	//	if (i ==45 || i == 46)
+	//		cout << "wait" << endl;
+	//	cout <<"after update:" << endl;
+		//rc = rm->readTuple(tablename, rids[i], data_returned);
+		//		rm->printDataFromAttributes(data_returned, Newattrs);
+			//	rc = rm->readTuple(tablename, rids[151], data_returned);
+				//							rm->printDataFromAttributes(data_returned, Newattrs);
 		assert(rc == success);
 	}
 	printf("After updating first 100!\n");
 
 	// Delete the last 100 tuples and read them
+vector<Attribute> another;
 	for (int i = 100; i < 200; i++) {
+if (i == 151)
+	cout << "wait" << endl;
 		rc = rm->readTuple(tablename, rids[i], data_returned);
+
+
+
+		//rm->printDataFromAttributes(data_returned, Newattrs);
+
 		assert(rc == success);
 
 		if (memcmp(data_returned, tuples[i], sizes[i]) != 0) {
 			printf("****Test case 9 failed in read tuples 2****\n\n");
+			cout << "AT " << i << endl;
 			return;
 		}
 
@@ -557,8 +585,10 @@ void secA_9(const string tablename) {
 
 	//char *attr = (char *)malloc(100);
 	//strcpy(attr, "Age");
-
-	rc = rm->scan(tablename, cond, LT_OP, &val, attributes, rmsi);
+	cond = "Height";
+val = 200;
+float comp = 300.0;
+	rc = rm->scan(tablename, cond, LT_OP, &comp, attributes, rmsi);
 	assert(rc == success);
 
 	printf("Scanned Data:\n");
@@ -936,18 +966,18 @@ int main() {
 
 	strcpy(name1, "Peters");
 	strcpy(name2, "Victor");
-
+/*
 	// Extra Credits
 	printf("Test Extra Credits....\n");
 
 	// Drop Attribute
-	createTable("tbl_employee");
+	createTable("tbl_employee");*/
 
 	secB_1("tbl_employee", 6, name1, 24, 170, 5000);
 
 	// Add Attributes
 	createTable("tbl_employee2");
-	secB_2("tbl_employee2", 6, name2, 22, 180, 6000, 999);
+	secB_2("tbl_employee2", 6, name2, 22, 180, 6000, 999);/*
 
 	// Reorganize Table
 	createTable("tbl_employee3");
@@ -955,6 +985,6 @@ int main() {
 
 	// Scan with conditions
 	createTable("tbl_employee4");
-	secB_4("tbl_employee4");
+	secB_4("tbl_employee4");*/
 	return 0;
 }
