@@ -85,6 +85,8 @@ PF_FileHandle::PF_FileHandle() {
 }
 
 PF_FileHandle::~PF_FileHandle() {
+	nameOfFile = NULL;
+	if (handle!=NULL) handle =NULL;
 }
 
 RC PF_FileHandle::ReadPage(PageNum pageNum, void *data) {
@@ -138,6 +140,7 @@ RC PF_FileHandle::AppendPage(const void *data) {
 
 RC PF_FileHandle::ClearHandle() {
 		handle = NULL;
+
 		return RC_SUCCESS;
 }
 RC PF_FileHandle::SetHandle(FILE* fHandle) {
