@@ -1382,6 +1382,11 @@ RC RM::deleteTuple(const string tableName, const RID &rid) {
 // Assume the rid does not change after update
 RC RM::updateTuple(const string tableName, const void *data, const RID &rid) {
 
+	return updateTuple(tableName,data,rid,false);
+}
+
+RC RM::updateTuple(const string tableName, const void *data, const RID &rid, bool inSearch) {
+
 	PF_FileHandle fileHandle;
 	getTableHandle(tableName, fileHandle);
 
@@ -1406,9 +1411,11 @@ RC RM::updateTuple(const string tableName, const void *data, const RID &rid) {
 		cloneRID.pageNum = (unsigned) temp;
 		memcpy(&temp, (char*) buffer + offset + unit + unit,unit);
 		cloneRID.slotNum = (unsigned) temp;
-		return updateTuple(tableName, data, cloneRID);
+		return updateTuple(tableName, data, cloneRID,true);
 	} else if (length < 0) {
-		return RC_FAIL;
+		if (inSearch == false)
+			return RC_FAIL;
+		else length *= (-1);
 	}
 	vector<Attribute> attrs;
 	unsigned temp_schema;
