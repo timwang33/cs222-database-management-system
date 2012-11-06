@@ -491,8 +491,7 @@ rm->getAttributes(tablename, Newattrs);
 		prepareTuple(5, "Helen", 20 + i, 100 + i, 50000, tuple, &tuple_size);
 
 		rc = rm->insertTuple(tablename, tuple, rid);
-if(i==151)
-	cout <<"wait" <<endl << endl;
+
 
 		assert(rc == success);
 
@@ -528,12 +527,7 @@ if(i==151)
 		rc = rm->readTuple(tablename, rids[i], data_returned);
 		//rm->printDataFromAttributes(data_returned, Newattrs);
 		assert(rc == success);
-		if (i == 151){
-							cout <<"wait" <<endl;
-							cout << rids[i].pageNum << "& " << rids[i].slotNum << endl;
-							rc = rm->readTuple(tablename, rids[i], data_returned);
-							//rm->printDataFromAttributes(data_returned, Newattrs);
-						}
+
 		if (memcmp(data_returned, tuples[i], sizes[i]) != 0) {
 			printf("****Test case 9 failed in read tuples 1****\n\n");
 			cout << " at " << i <<endl;
@@ -943,6 +937,8 @@ void secB_4(const string tablename) {
 	}
 	return;
 }
+
+/*
 int main() {
 	// Basic Functions
 
@@ -966,25 +962,25 @@ int main() {
 
 	strcpy(name1, "Peters");
 	strcpy(name2, "Victor");
-/*
+
 	// Extra Credits
 	printf("Test Extra Credits....\n");
 
 	// Drop Attribute
-	createTable("tbl_employee");*/
+	createTable("tbl_employee");
 
 	secB_1("tbl_employee", 6, name1, 24, 170, 5000);
 
 	// Add Attributes
 	createTable("tbl_employee2");
-	secB_2("tbl_employee2", 6, name2, 22, 180, 6000, 999);/*
+	secB_2("tbl_employee2", 6, name2, 22, 180, 6000, 999);
 
-	// Reorganize Table
-	createTable("tbl_employee3");
-	secB_3("tbl_employee3");
+	//Reorganize Table
+	createTable("tbl_employee8");
+	secB_3("tbl_employee8");
 
-	// Scan with conditions
-	createTable("tbl_employee4");
-	secB_4("tbl_employee4");*/
+	//Scan with conditions
+	createTable("tbl_employee9");
+	secB_4("tbl_employee9");
 	return 0;
-}
+}*/

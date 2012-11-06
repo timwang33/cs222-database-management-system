@@ -136,6 +136,7 @@ public:
 	// Assume the rid does not change after update
 	RC updateTuple(const string tableName, const void *data, const RID &rid);
 
+	RC updateTuple(const string tableName, const void *data, const RID &rid, bool inSearch);
 	RC readTuple(const string tableName, const RID &rid, void *data);
 
 	RC readAttribute(const string tableName, const RID &rid,
