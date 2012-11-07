@@ -1,6 +1,7 @@
 #ifndef _ix_h_
 #define _ix_h_
 
+
 #include <vector>
 #include <string>
 #include <sys/stat.h>
@@ -8,8 +9,16 @@
 #include "../pf/pf.h"
 #include "../rm/rm.h"
 
-# define IX_EOF (-1)  // end of the index scan
-using namespace std;
+#define IX_EOF (-1)  // end of the index scan
+#define KEY_SIZE 4
+
+typedef enum {
+	RootNode = 0,
+	BranchNode,
+	LeafNode,
+	RIDListNode
+} NodeType;
+
 
 class IX_IndexHandle;
 

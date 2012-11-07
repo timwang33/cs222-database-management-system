@@ -11,9 +11,95 @@ IX_Manager* IX_Manager::Instance() {
 	return _ix_manager;
 }
 
+void GetTotalEntries(void * buffer, short &totalEntries) {
+	memcpy(&totalEntries, (char*) buffer + END_OF_PAGE - unit,unit);
+
+}
+
+void WriteTotalEntries(void * buffer, short totalEntries) {
+	memcpy((char*) buffer + END_OF_PAGE - unit, &totalEntries,unit);
+}
+
+void GetFreeSpace(void * buffer, short &freeSpace) {
+	memcpy(&freeSpace, (char*) buffer + END_OF_PAGE - 2 * unit,unit);
+}
+
+void WriteFreeSpace(void * buffer, short freeSpace) {
+	memcpy((char*) buffer + END_OF_PAGE - 2 * unit, &freeSpace,unit);
+}
+
+void WriteStartingPage(void * buffer, short page) {
+	memcpy((char*) buffer, &page,unit);
+}
+
+void GetStartingPage(void * buffer, short &page) {
+	memcpy(&page, (char*) buffer, unit);
+}
+
+void CalcPtrOffset(short index, NodeType type, char ptrSize, short &result) {
+
+	if (type == LeafNode) {
+		result = (index -1) * (KEY_SIZE+ ptrSize) + KEY_SIZE;
+	}
+	else {
+		result = index * (KEY_SIZE +ptrSize);
+	}
+}
+
+void CalcKeyOffset(short index, NodeType type, char ptrSize, short &result) {
+
+	if (type == LeafNode) {
+		result = (index -1) * (KEY_SIZE+ ptrSize);
+	}
+	else {
+		result = (index-1) * (KEY_SIZE +ptrSize) + ptrSize;
+	}
+}
+
+void WriteNodeType(void * buffer, NodeType type) {
+	memcpy((char*) buffer + END_OF_PAGE - 3*unit -1, (char*) &type, sizeof(char));
+}
+
+void GetNodeType(void * buffer, NodeType &type) {
+	char result=0;
+	memcpy((char*)&result, (char*) buffer + END_OF_PAGE -3*unit-1, sizeof(char));
+	type = (NodeType) result;
+}
+
+void WritePtrSize(void * buffer, char size) {
+	memcpy((char*) buffer + END_OF_PAGE - 4*unit,  &size, sizeof(char));
+}
+
+void GetPtrSize(void * buffer, char &ptrSize) {
+	memcpy(&ptrSize, (char*) buffer + END_OF_PAGE - 4*unit, sizeof(char));
+}
+
+void WriteNextNeighbor(void *buffer, short pageNumber) {
+	memcpy((char*) buffer + END_OF_PAGE - 3*unit,  &pageNumber, unit);
+}
+
+void GetNextNeighbor(void *buffer, short &pageNumber) {
+	memcpy(&pageNumber, (char*) buffer + END_OF_PAGE - 3*unit, unit);
+}
+
+void CreateNewPage(void *buffer, NodeType type) {
+	memset(buffer,0,PF_PAGE_SIZE);
+	WriteNodeType(buffer,type);
+	if (type == LeafNode) {
+		WritePtrSize(buffer,4);
+	} 	else {  // non-leaf node has ptr of size 2: page number
+		WritePtrSize(buffer,2);
+	}
+}
+
+
 RC IX_Manager::CreateIndex(const string tableName, const string attributeName) {
 	string fileName = tableName + attributeName + ".idx";
+	struct stat stFileInfo;
 
+		if (stat(fileName.c_str(), &stFileInfo) == RC_SUCCESS) {
+			remove(fileName.c_str());
+		}
 	RC rc = fileManager->CreateFile(fileName.c_str());
 	return rc;
 }
@@ -38,7 +124,7 @@ RC IX_Manager::OpenIndex(const string tableName, const string attributeName, IX_
 	string fileName = tableName + attributeName + ".idx";
 	struct stat stFileInfo;
 
-	if (stat(fileName.c_str(), &stFileInfo) != RC_SUCCESS) {
+	if (stat(fileName.c_str(), &stFileInfo) != RC_SUCCESS) {  // file not exist
 		return RC_FAIL;
 	}
 	PF_FileHandle handle = indexHandle.GetHandle();
@@ -52,6 +138,19 @@ RC IX_Manager::OpenIndex(const string tableName, const string attributeName, IX_
 	RC rc = fileManager->OpenFile(fileName.c_str(), handle);
 	if (rc == RC_FAIL) {
 		return rc;
+	}
+	else { // openFile
+		void *buffer = malloc(PF_PAGE_SIZE);
+		WriteTotalEntries(buffer, 0);
+		WriteFreeSpace(buffer, PF_PAGE_SIZE-4);
+		WriteStartingPage(buffer,1);
+		handle.WritePage(0,buffer);
+		CreateNewPage(buffer,LeafNode);
+		handle.WritePage(1,buffer);
+
+		free(buffer);
+		return RC_SUCCESS;
+
 	}
 
 }
