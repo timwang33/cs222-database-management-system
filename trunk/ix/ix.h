@@ -1,7 +1,6 @@
 #ifndef _ix_h_
 #define _ix_h_
 
-
 #include <vector>
 #include <string>
 #include <sys/stat.h>
@@ -10,14 +9,27 @@
 #include "../rm/rm.h"
 
 #define IX_EOF (-1)  // end of the index scan
+
+//Declare vector leaf entry
+typedef struct {
+	void* key;
+	short page;
+	short slot;
+
+} LEAF_ENTRY;
+
+//Declare vector middle and root entry
+typedef struct {
+	void* key;
+	short page;
+} NONLEAF_ENTRY;
+
 #define KEY_SIZE 4
 
 typedef enum {
-	RootNode = 0,
-	BranchNode,
-	LeafNode,
-	RIDListNode
+	RootNode = 0, BranchNode, LeafNode, RIDListNode, NonLeafNode
 } NodeType;
+
 
 
 class IX_IndexHandle;
@@ -54,10 +66,17 @@ public:
 	//     For varchar: use 4 bytes to store the length of characters, then store the actual characters.
 	RC InsertEntry(void *key, const RID &rid); // Insert new index entry
 	RC DeleteEntry(void *key, const RID &rid); // Delete index entry
-PF_FileHandle GetHandle();
+	RC insertEntry(short pageNumber, void * key, const RID rid, NONLEAF_ENTRY &return_Entry, bool &check);
+	RC readLeafEntries(PageNum pageNumber, vector<LEAF_ENTRY> &leaf_entries);
+	RC readMiddleEntries(PageNum pageNumber, vector<NONLEAF_ENTRY> &middle_entries);
+	RC writeLeafIndexPage(PageNum pageNumber, vector<LEAF_ENTRY> &leaf_Entries, short &neighBour);
+	RC writeMiddleIndexPage(PageNum pageNumber, vector<NONLEAF_ENTRY> &middle_Entries);
+	PF_FileHandle GetHandle();
 
-private:
+
 	PF_FileHandle fileHandle;
+	AttrType  keyType;
+	short root;
 };
 
 class IX_IndexScan {
