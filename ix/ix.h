@@ -68,10 +68,10 @@ public:
 	RC DeleteEntry(void *key, const RID &rid); // Delete index entry
 	RC insertEntry(short pageNumber, void * key, const RID rid, NONLEAF_ENTRY &return_Entry, bool &check);
 	RC readLeafEntries(PageNum pageNumber, vector<LEAF_ENTRY> &leaf_entries);
-	RC readMiddleEntries(PageNum pageNumber, vector<NONLEAF_ENTRY> &middle_entries);
-	RC writeLeafIndexPage(PageNum pageNumber, vector<LEAF_ENTRY> &leaf_Entries, short &neighBour);
-	RC writeMiddleIndexPage(PageNum pageNumber, vector<NONLEAF_ENTRY> &middle_Entries);
-	PF_FileHandle GetHandle();
+	RC readNonLeafEntries(PageNum pageNumber, vector<NONLEAF_ENTRY> &middle_entries);
+	RC writeLeafPage(PageNum pageNumber, vector<LEAF_ENTRY> &leaf_Entries, short &neighBour);
+	RC writeNonLeafPage(PageNum pageNumber, vector<NONLEAF_ENTRY> &middle_Entries);
+
 
 
 	PF_FileHandle fileHandle;
