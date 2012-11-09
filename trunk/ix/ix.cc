@@ -2,12 +2,30 @@
 #include <algorithm>
 
 using namespace std;
-bool leafCompare(LEAF_ENTRY leaf1, LEAF_ENTRY leaf2) {
-	return (leaf1.key < leaf2.key);
+
+
+bool leafCompareInt(LEAF_ENTRY leaf1, LEAF_ENTRY leaf2) {
+
+	return (*(int*)leaf1.key < *(int*)leaf2.key);
+
 }
-bool middleCompare(NONLEAF_ENTRY node1, NONLEAF_ENTRY node2) {
-	return (node1.key < node2.key);
+
+bool leafCompareReal(LEAF_ENTRY leaf1, LEAF_ENTRY leaf2) {
+
+	return (*(float*)leaf1.key < *(float*)leaf2.key);
+
 }
+
+bool nonLeafCompareInt(NONLEAF_ENTRY node1, NONLEAF_ENTRY node2) {
+			return (*(int*)node1.key < *(int*)node2.key);
+
+}
+
+bool nonLeafCompareReal(NONLEAF_ENTRY node1, NONLEAF_ENTRY node2) {
+			return (*(float*)node1.key < *(float*)node2.key);
+
+}
+
 
 IX_Manager* IX_Manager::_ix_manager = 0;
 
@@ -244,7 +262,9 @@ IX_IndexHandle::~IX_IndexHandle() { // Destructor
 //     For varchar: use 4 bytes to store the length of characters, then store the actual characters.
 RC IX_IndexHandle::InsertEntry(void *key, const RID &rid) { // Insert new index entry
 	NONLEAF_ENTRY return_entry;
+	return_entry.key = malloc(KEY_SIZE);
 	bool has_return;
+
 	insertEntry(root, key, rid, return_entry, has_return);
 
 	if (has_return) {
@@ -253,72 +273,175 @@ RC IX_IndexHandle::InsertEntry(void *key, const RID &rid) { // Insert new index 
 		void *buffer = malloc(PF_PAGE_SIZE);
 		fileHandle.ReadPage(root, buffer);
 
-		short freeSpace=0;
+		short freeSpace = 0;
 
 		GetFreeSpace(buffer, freeSpace);
 
 		vector<NONLEAF_ENTRY> nonleaf_entries;
-		readNonLeafEntries(root,nonleaf_entries);
+		GetNonLeafEntries(buffer, nonleaf_entries);
 		// insert return entry
 
 		nonleaf_entries.push_back(return_entry);
-		sort(nonleaf_entries.begin(), nonleaf_entries.end(), middleCompare);
-
+		if (nonleaf_entries.size()>1) {
+		if (keyType == TypeInt)
+		sort(nonleaf_entries.begin(), nonleaf_entries.end(), nonLeafCompareInt);
+		else if (keyType == TypeReal)
+			sort(nonleaf_entries.begin(), nonleaf_entries.end(), nonLeafCompareReal);
+		}
 		if (freeSpace >= 6) {
-				writeNonLeafPage(root, nonleaf_entries);
-				free(buffer);
-				return RC_SUCCESS;
+			writeNonLeafPage(root, nonleaf_entries);
+			free(buffer);
+			for (unsigned i =0; i< nonleaf_entries.size(); i++)
+				free(nonleaf_entries[i].key);
+			return RC_SUCCESS;
 		} else {
-				short popUpEntry = nonleaf_entries.size() / 2;
-				//split to 2 pages,
-				// break into 2 subvector
-				vector<NONLEAF_ENTRY> subEntriesA, subEntriesB;
-				NONLEAF_ENTRY copyNode;
+			short popUpEntry = nonleaf_entries.size() / 2;
+			//split to 2 pages,
+			// break into 2 subvector
+			vector<NONLEAF_ENTRY> subEntriesA, subEntriesB;
+			NONLEAF_ENTRY copyNode;
 
-				for (int i = 0; i < (int) popUpEntry; i++) {
-						copyNode = nonleaf_entries[i];
-						subEntriesA.push_back(copyNode);
-					}
-					for (int i = popUpEntry + 1; i <= nonleaf_entries.size()  ; i++) {
-						copyNode = nonleaf_entries[i];
-						subEntriesB.push_back(copyNode);
-					}
+			for (int i = 0; i < (int) popUpEntry; i++) {
+				copyNode = nonleaf_entries[i];
+				subEntriesA.push_back(copyNode);
+			}
+			for (int i = popUpEntry + 1; i <= nonleaf_entries.size(); i++) {
+				copyNode = nonleaf_entries[i];
+				subEntriesB.push_back(copyNode);
+			}
 
-					short newPage = (short) (fileHandle.GetNumberOfPages());
-					// write back to old pages
-					writeNonLeafPage(newPage, subEntriesB);
-					writeNonLeafPage(root, subEntriesA);
+			short newPage = (short) (fileHandle.GetNumberOfPages());
+			// write back to old pages
+			writeNonLeafPage(newPage, subEntriesB);
+			writeNonLeafPage(root, subEntriesA);
 
+			root = (short) fileHandle.GetNumberOfPages(); // new ROOT
+			void *header_page = malloc(PF_PAGE_SIZE);
+			fileHandle.ReadPage(0, header_page);
+			WriteStartingPage(header_page, root);
+			fileHandle.WritePage(0, header_page);
 
-					root = (short) fileHandle.GetNumberOfPages(); // new ROOT
-					void *header_page = malloc(PF_PAGE_SIZE);
-					fileHandle.ReadPage(0, header_page);
-					WriteStartingPage(header_page, root);
-					fileHandle.WritePage(0, header_page);
+			CreateNewPage(buffer, NonLeafNode);
+			WriteStartingPage(buffer, old_root);
+			memcpy((char*) buffer + unit,nonleaf_entries[popUpEntry].key,KEY_SIZE);
+			memcpy((char*) buffer + unit + KEY_SIZE, &newPage,unit);
+			WriteFreeSpace(buffer, PF_PAGE_SIZE - 16);
+			fileHandle.WritePage(root, buffer);
 
-					CreateNewPage(buffer,NonLeafNode);
-					WriteStartingPage(buffer,old_root);
-					memcpy((char*) buffer +unit,nonleaf_entries[popUpEntry].key,KEY_SIZE);
-					memcpy((char*) buffer+unit+KEY_SIZE, &newPage, unit);
-					WriteFreeSpace(buffer,PF_PAGE_SIZE-16);
-					fileHandle.WritePage(root,buffer);
+			free(buffer);
+			free(header_page);
+			for (unsigned i =0; i< nonleaf_entries.size(); i++)
+							free(nonleaf_entries[i].key);
 
-					free(buffer);
-					free (header_page);
-					return RC_SUCCESS;
+			return RC_SUCCESS;
 
-				}
+		}
 	}
+return RC_SUCCESS;
 }
 
 RC IX_IndexHandle::DeleteEntry(void *key, const RID &rid) { // Delete index entry
 //search for it
 }
 
+RC IX_IndexHandle::SearchEntry(const void *key, vector<RID> &result) { // Delete index entry
+	bool found;
+	searchEntry(root, key, result, found);
 
+	if (found == true) {
+		return RC_SUCCESS;
+	} else {
+		return RC_FAIL;
+
+	}
+}
+
+RC IX_IndexHandle::searchEntry(short pageNumber, const void * key, vector<RID> &result, bool &check) {
+	void * buffer = malloc(PF_PAGE_SIZE);
+	fileHandle.ReadPage(pageNumber, buffer);
+
+	unsigned index = 0;
+
+	NodeType node_type;
+
+	GetNodeType(buffer, node_type);
+
+
+
+	if (node_type == NonLeafNode) {
+		vector<NONLEAF_ENTRY> nonLeaf_entries;
+		GetNonLeafEntries(buffer, nonLeaf_entries);
+
+		while (index < nonLeaf_entries.size()) {
+			if (*(int*) nonLeaf_entries[index].key < *(int*) key)
+				index++;
+			else
+				break;
+		}
+		short nextPage = 0;
+		if (index == 0) {
+			GetStartingPage(buffer, nextPage);
+		} else {
+			nextPage = nonLeaf_entries[index - 1].page;
+		}
+
+		searchEntry(nextPage, key, result, check);
+	} else { // search leaf node
+
+		short freeSpace = 0;
+		GetFreeSpace(buffer, freeSpace);
+
+		vector<LEAF_ENTRY> leaf_entries;
+		GetLeafEntries(buffer, leaf_entries);
+
+		int lhs = 0;
+		int rhs = 0;
+		while (index < leaf_entries.size()) {
+			lhs = *(int*) leaf_entries[index].key;
+			rhs = *(int*) key;
+			if (lhs != rhs)
+				index++;
+			else
+				break;
+		}
+
+		if (index == leaf_entries.size()) { // khong tim thay
+			check = false;
+			return RC_FAIL;
+		} else {
+			//index = entry dau tien can tim
+
+			while ((int) leaf_entries[index].key == *(int*) key && index < leaf_entries.size()) {
+				RID rid;
+				rid.pageNum = (unsigned) leaf_entries[index].page;
+				rid.slotNum = (unsigned) leaf_entries[index].slot;
+				result.push_back(rid);
+				index++;
+				check = true;
+			}
+			/*
+			 //sau khi thoat ra neu thoat vi het cho thi phai chuyen sang trang tiep theo
+			 if (freeSpace <8 && index == leaf_entries.size()) index--;
+			 if ((int) leaf_entries[index].key == *(int*) key) {
+			 short neighbor;
+			 GetNeighbor(buffer, neighbor);
+			 if (neighbor != 0) {
+			 searchEntry(neighbor, key, result, check);
+			 }
+			 check = true;
+			 return RC_SUCCESS;
+			 //luon bang true vi it nhat da co 1 trang truoc
+			 }
+			 */
+
+		}
+	}
+}
 IX_IndexScan::IX_IndexScan() { // Constructor
+	value = malloc(KEY_SIZE);
 }
 IX_IndexScan::~IX_IndexScan() { // Destructor
+	free(value);
 }
 
 // for the format of "value", please see IX_IndexHandle::InsertEntry()
@@ -339,13 +462,8 @@ void IX_PrintError(RC rc) {
 
 }
 
-void printLeafEntry(LEAF_ENTRY leaf) {
-	cout << "key: " << (int) leaf.key << endl;
-	cout << "page: " << leaf.page << endl;
-	cout << "slot: " << leaf.slot << endl;
-}
 
-void printLeafEntry(LEAF_ENTRY leaf, AttrType key_type) {
+void printLeafEntry(LEAF_ENTRY &leaf, AttrType key_type) {
 	cout << "key: ";
 	if (key_type == TypeInt)
 		cout << *(int*) leaf.key << endl;
@@ -359,29 +477,29 @@ void printLeafEntry(LEAF_ENTRY leaf, AttrType key_type) {
 RC IX_IndexHandle::readLeafEntries(PageNum pageNumber, vector<LEAF_ENTRY> &leaf_entries) {
 
 	void* buffer = malloc(PF_PAGE_SIZE);
+	/*
+	 //check if function correct
+	 void *data = malloc(PF_PAGE_SIZE);
+	 for (int i = 1; i <= 3; i++) {
+	 short offset = 8 * (i - 1);
+	 short key = 2 * i;
+	 short rid = i;
+	 short page = (short) pageNumber;
 
-	//check if function correct
-	void *data = malloc(PF_PAGE_SIZE);
-	for (int i = 1; i <= 3; i++) {
-		short offset = 8 * (i - 1);
-		short key = 2 * i;
-		short rid = i;
-		short page = (short) pageNumber;
+	 memcpy((char*) data + offset, &key, 4);
+	 memcpy((char*) data + offset + 4, &rid, 2);
+	 memcpy((char*) data + offset + 6, &page, 2);
+	 }
 
-		memcpy((char*) data + offset, &key, 4);
-		memcpy((char*) data + offset + 4, &rid, 2);
-		memcpy((char*) data + offset + 6, &page, 2);
-	}
-
-	short testN = 3, freeSpace = PF_PAGE_SIZE - 9 - 8 * 3, neighbor = 1, type = 2, size = 4; //leaf
-	memcpy((char*) data + PF_PAGE_SIZE - 2, &testN, 2);
-	memcpy((char*) data + PF_PAGE_SIZE - 4, &freeSpace, 2);
-	memcpy((char*) data + PF_PAGE_SIZE - 6, &neighbor, 2);
-	memcpy((char*) data + PF_PAGE_SIZE - 7, &type, 1);
-	memcpy((char*) data + PF_PAGE_SIZE - 9, &size, 2);
-	//write to page
-	fileHandle.WritePage(pageNumber, data);
-
+	 short testN = 3, freeSpace = PF_PAGE_SIZE - 9 - 8 * 3, neighbor = 1, type = 2, size = 4; //leaf
+	 memcpy((char*) data + PF_PAGE_SIZE - 2, &testN, 2);
+	 memcpy((char*) data + PF_PAGE_SIZE - 4, &freeSpace, 2);
+	 memcpy((char*) data + PF_PAGE_SIZE - 6, &neighbor, 2);
+	 memcpy((char*) data + PF_PAGE_SIZE - 7, &type, 1);
+	 memcpy((char*) data + PF_PAGE_SIZE - 9, &size, 2);
+	 //write to page
+	 fileHandle.WritePage(pageNumber, data);
+	 */
 	fileHandle.ReadPage(pageNumber, buffer);
 	short N; //, freeSpace, nextNeighbor,pointerSize; //number of key in page
 	//unsigned nodeType; //0 - root, 1- middle, 2- leaf
@@ -399,23 +517,73 @@ RC IX_IndexHandle::readLeafEntries(PageNum pageNumber, vector<LEAF_ENTRY> &leaf_
 	for (short i = 1; i <= N; i++) {
 		CalcKeyOffset(i, LeafNode, ptr_size, offset);
 		//offset = 8 * (i - 1);
-		memcpy(&entry.key, (char*) buffer + offset, KEY_SIZE);
+		entry.key = malloc(KEY_SIZE);
+		memcpy(entry.key, (char*) buffer + offset, KEY_SIZE);
 		CalcPtrOffset(i, LeafNode, ptr_size, offset);
 		memcpy(&entry.page, (char*) buffer + offset, unit);
 		memcpy(&entry.slot, (char*) buffer + +offset + unit,unit);
 		leaf_entries.push_back(entry);
-		printLeafEntry(entry, this->keyType);
+		//printLeafEntry(entry, this->keyType);
 	}
 
-	sort(leaf_entries.begin(), leaf_entries.end(), leafCompare);
+	if (leaf_entries.size() > 1) {
+		if (keyType == TypeInt)
+		sort(leaf_entries.begin(), leaf_entries.end(), leafCompareInt);
+		else if (keyType == TypeReal)
+			sort(leaf_entries.begin(), leaf_entries.end(), leafCompareReal);
+	}
 	free(buffer);
-	free(data);
+	//free(data);
 	return RC_SUCCESS;
 }
 
-//RC readNonLeafEntries(IX_IndexHandle &indexHandle, PageNum pageNumber, vector<NONLEAF_ENTRY> &nonleaf_entries)
-RC IX_IndexHandle::readNonLeafEntries(PageNum pageNumber, vector<NONLEAF_ENTRY> &nonleaf_entries) {
+RC IX_IndexHandle::GetLeafEntries(void* buffer, vector<LEAF_ENTRY> &leaf_entries) {
 
+	short N = 0;
+	GetTotalEntries(buffer, N);
+
+	char ptr_size;
+	GetPtrSize(buffer, ptr_size);
+
+	short offset = 0;
+
+	for (short i = 1; i <= N; i++) {
+		LEAF_ENTRY entry;
+		entry.key = malloc(KEY_SIZE);
+		CalcKeyOffset(i, LeafNode, ptr_size, offset);
+		memcpy(entry.key, (char*) buffer + offset, KEY_SIZE);
+		CalcPtrOffset(i, LeafNode, ptr_size, offset);
+		memcpy(&entry.page, (char*) buffer + offset, unit);
+		memcpy(&entry.slot, (char*) buffer + +offset + unit,unit);
+		leaf_entries.push_back(entry);
+	}
+
+	return RC_SUCCESS;
+}
+
+RC IX_IndexHandle::GetNonLeafEntries(void* buffer, vector<NONLEAF_ENTRY> &nonleaf_entries) {
+
+	short N = 0;
+	GetTotalEntries(buffer, N);
+
+	char ptr_size;
+	GetPtrSize(buffer, ptr_size);
+
+	short offset = 0;
+
+	for (short i = 1; i <= N; i++) {
+		NONLEAF_ENTRY entry;
+		entry.key = malloc(KEY_SIZE);
+		CalcKeyOffset(i, NonLeafNode, ptr_size, offset);
+		memcpy(entry.key, (char*) buffer + offset, KEY_SIZE);
+		CalcPtrOffset(i, NonLeafNode, ptr_size, offset);
+		memcpy(&entry.page, (char*) buffer + offset, unit);
+		nonleaf_entries.push_back(entry);
+	}
+
+	return RC_SUCCESS;
+}
+RC IX_IndexHandle::readNonLeafEntries(PageNum pageNumber, vector<NONLEAF_ENTRY> &nonleaf_entries) {
 
 	void* buffer = malloc(PF_PAGE_SIZE);
 	//check if function correct
@@ -435,14 +603,16 @@ RC IX_IndexHandle::readNonLeafEntries(PageNum pageNumber, vector<NONLEAF_ENTRY> 
 	GetStartingPage(buffer, pointer0);
 	for (short i = 1; i <= N; i++) {
 		CalcKeyOffset(i, NonLeafNode, ptr_size, offset);
-		memcpy(&entry.key, (char*) buffer + offset, KEY_SIZE);
+		entry.key = malloc(KEY_SIZE);
+		memcpy(entry.key, (char*) buffer + offset, KEY_SIZE);
 		CalcPtrOffset(i, NonLeafNode, ptr_size, offset);
 		memcpy(&entry.page, (char*) buffer + offset, unit);
 		nonleaf_entries.push_back(entry);
 	}
 
-	//reverse(nonleaf_entries.begin(), nonleaf_entries.end());
-	sort(nonleaf_entries.begin(), nonleaf_entries.end(), middleCompare);
+
+
+	//sort(nonleaf_entries.begin(), nonleaf_entries.end(), middleCompare);
 	free(data);
 
 	free(buffer);
@@ -450,7 +620,6 @@ RC IX_IndexHandle::readNonLeafEntries(PageNum pageNumber, vector<NONLEAF_ENTRY> 
 }
 
 RC IX_IndexHandle::writeLeafPage(PageNum pageNumber, vector<LEAF_ENTRY> &leaf_Entries, short &neighBour) {
-
 
 	void* buffer = malloc(PF_PAGE_SIZE);
 	fileHandle.ReadPage(pageNumber, buffer);
@@ -479,7 +648,7 @@ RC IX_IndexHandle::writeLeafPage(PageNum pageNumber, vector<LEAF_ENTRY> &leaf_En
 
 	//neighbor doc tu buffer
 	short neighBor;
-	if (pageNumber == fileHandle.GetNumberOfPages()) {
+	if (pageNumber == fileHandle.GetNumberOfPages()) { // never true
 		neighBor = -1;
 	} else {
 		neighBor = neighBour;
@@ -494,7 +663,6 @@ RC IX_IndexHandle::writeLeafPage(PageNum pageNumber, vector<LEAF_ENTRY> &leaf_En
 	return RC_SUCCESS;
 }
 RC IX_IndexHandle::writeNonLeafPage(PageNum pageNumber, vector<NONLEAF_ENTRY> &nonleaf_entries) {
-
 
 	void* buffer = malloc(PF_PAGE_SIZE);
 	fileHandle.ReadPage(pageNumber, buffer);
@@ -528,56 +696,126 @@ RC IX_IndexHandle::writeNonLeafPage(PageNum pageNumber, vector<NONLEAF_ENTRY> &n
 RC IX_IndexHandle::insertEntry(short pageNumber, void * key, const RID rid, NONLEAF_ENTRY &return_Entry, bool &check) {
 	void * buffer = malloc(PF_PAGE_SIZE);
 
-
 	fileHandle.ReadPage(pageNumber, buffer);
 
-
-	short freeSpace, N, neighbor;
+	short freeSpace, neighbor;
 	NodeType node_type;
 
 	GetFreeSpace(buffer, freeSpace);
 	GetNodeType(buffer, node_type);
 	GetNeighbor(buffer, neighbor);
-	/*memcpy(&neighBour, (char*) buffer + PF_PAGE_SIZE - (3 * unit), 2);
-	 memcpy(&freeSpace, (char*) buffer + PF_PAGE_SIZE - (2 * unit), 2);
-	 memcpy(&N, (char*) buffer + PF_PAGE_SIZE - unit, 2);
-	 memcpy(&type, (char*) buffer + PF_PAGE_SIZE - (1 + 3 * unit), 1);*/
 
 	if (node_type == LeafNode) {
 		vector<LEAF_ENTRY> leaf_entries;
 		LEAF_ENTRY leaf;
-		leaf.key = key;
+		leaf.key = malloc(KEY_SIZE);
+		memcpy(leaf.key, key, KEY_SIZE);
 		leaf.page = (short) rid.pageNum;
 		leaf.slot = (short) rid.slotNum;
-		readLeafEntries(pageNumber, leaf_entries);
+		printLeafEntry(leaf, this->keyType);
+		GetLeafEntries(buffer, leaf_entries);
+
 
 		leaf_entries.push_back(leaf);
-		sort(leaf_entries.begin(), leaf_entries.end(), leafCompare);
+		if (leaf_entries.size() > 1) {
+			if (keyType == TypeInt)
+				sort(leaf_entries.begin(), leaf_entries.end(), leafCompareInt);
+			else if (keyType == TypeReal)
+				sort(leaf_entries.begin(), leaf_entries.end(), leafCompareReal);
+		}
+
+
+		// print
+		LEAF_ENTRY entry;
+		for (unsigned i =0; i< leaf_entries.size(); i++ ){
+			entry = leaf_entries[i];
+		printLeafEntry(entry,keyType);
+	}
 
 		if (freeSpace >= 8) {
 			writeLeafPage(pageNumber, leaf_entries, neighbor);
 			free(buffer);
-			check = false; // no split
+			check = false; // no Return_Entry
+
+			for (unsigned i = 0; i < leaf_entries.size(); i++) {
+				free(leaf_entries[i].key);
+			}
 			return RC_SUCCESS;
 		} else {
-			check = true; //split
+			check = true; // has Return_Entry
 
 			//push new entry first, after that divide page to 2 pages
-			short copyUpEntry = leaf_entries.size() / 2;
 
-			void* copyUpKey; // middle value of vector
+			unsigned N = leaf_entries.size();
+			unsigned position = 0;
+			if (this->keyType == TypeInt) {
+				int minKey, maxKey, midKey;
+				int direction;
+				memcpy(&minKey, leaf_entries[0].key, KEY_SIZE);
+				memcpy(&maxKey, leaf_entries[N - 1].key, KEY_SIZE);
+				memcpy(&midKey, leaf_entries[N / 2].key, KEY_SIZE);
+				if (minKey == maxKey) {
+					cerr << "Leaf Node full of same-key entries - Illegal" << endl;
+					assert(0==1);
+				} else {
+					if (midKey == maxKey) {
+						direction = -1;
+					} else {
+						direction = 1;
+					}
 
-			return_Entry.key = leaf_entries[copyUpEntry].key;
-			return_Entry.page = pageNumber;
+					position = N / 2 + direction;
+					int next = 0;
+					while (position >= 0 && position < N) {
+						memcpy(&next, leaf_entries[position].key, KEY_SIZE);
+						if (next != midKey) {
+							break;
+						} else {
+							position += direction;
+						}
+
+					}
+				}
+			} else if (this->keyType == TypeReal) {
+				float minKey, maxKey, midKey;
+				int direction;
+				memcpy(&minKey, leaf_entries[0].key, KEY_SIZE);
+				memcpy(&maxKey, leaf_entries[N - 1].key, KEY_SIZE);
+				memcpy(&midKey, leaf_entries[N / 2].key, KEY_SIZE);
+				if (minKey == maxKey) {
+					cerr << "Leaf Node full of same-key entries - Illegal" << endl;
+					assert(0==1);
+				} else {
+					if (midKey == maxKey) {
+						direction = -1;
+					} else {
+						direction = 1;
+					}
+
+					position = N / 2 + direction;
+					float next = 0;
+					while (position >= 0 && position < N) {
+						memcpy(&next, leaf_entries[position].key, KEY_SIZE);
+						if (next != midKey) {
+							break;
+						} else {
+							position += direction;
+						}
+
+					}
+				}
+			}
+
+			short copyUpEntry = (short) position;
 
 			// create 2 new pages
 			vector<LEAF_ENTRY> subEntriesA, subEntriesB;
 			LEAF_ENTRY copyLeaf;
-			for (int i = 0; i < (int) copyUpEntry; i++) {
+			for (int i = 0; i <= (int) copyUpEntry; i++) {
 				copyLeaf = leaf_entries[i];
 				subEntriesA.push_back(copyLeaf);
 			}
-			for (int i = (int)copyUpEntry; i < (int)leaf_entries.size(); i++) {
+			for (int i = (int) copyUpEntry + 1; i < (int) leaf_entries.size(); i++) {
 				copyLeaf = leaf_entries[i];
 				subEntriesB.push_back(copyLeaf);
 			}
@@ -587,24 +825,46 @@ RC IX_IndexHandle::insertEntry(short pageNumber, void * key, const RID rid, NONL
 			writeLeafPage(newPage, subEntriesB, neighbor);
 
 			writeLeafPage(pageNumber, subEntriesA, newPage);
+
+			memcpy(return_Entry.key, leaf_entries[copyUpEntry].key, KEY_SIZE);
+			return_Entry.page = newPage;
 			free(buffer);
+
+			for (unsigned i = 0; i < leaf_entries.size(); i++) {
+				free(leaf_entries[i].key);
+			}
 			return RC_SUCCESS;
 		}
 
-	} else {
+	} //end of LEAF_NODE
+
+	else {
 		vector<NONLEAF_ENTRY> nonleaf_entries;
 
-		readNonLeafEntries(pageNumber, nonleaf_entries);
+		GetNonLeafEntries(buffer, nonleaf_entries);
 
-		// xu ly node middle
 		//compare key with page entries
 		unsigned index = 0;
 
+		if (keyType == TypeInt) {
 		while (index < nonleaf_entries.size()) {
-			if ((int) nonleaf_entries[index].key < (int) key)
+
+			if (*(int*) nonleaf_entries[index].key < *(int*) key)
 				index++;
 			else
 				break;
+
+		}
+		}
+		else if (keyType == TypeReal) {
+			while (index < nonleaf_entries.size()) {
+
+						if (*(float*) nonleaf_entries[index].key < *(float*) key)
+							index++;
+						else
+							break;
+
+					}
 		}
 
 		short nextPage;
@@ -614,14 +874,24 @@ RC IX_IndexHandle::insertEntry(short pageNumber, void * key, const RID rid, NONL
 			nextPage = nonleaf_entries[index - 1].page;
 		}
 		insertEntry(nextPage, key, rid, return_Entry, check);
-		if (check) //have to split
-		{
+
+		if (check == true) {  //have Return_entry
+
 			nonleaf_entries.push_back(return_Entry);
-			sort(nonleaf_entries.begin(), nonleaf_entries.end(), middleCompare);
+			if (nonleaf_entries.size() > 1) {
+				if (keyType == TypeInt)
+			sort(nonleaf_entries.begin(), nonleaf_entries.end(), nonLeafCompareInt);
+				else if (keyType == TypeReal)
+					sort(nonleaf_entries.begin(), nonleaf_entries.end(), nonLeafCompareReal);
+			}
 			if (freeSpace >= 6) {
 				writeNonLeafPage(pageNumber, nonleaf_entries);
 				free(buffer);
-				check = false; // no split
+				free(return_Entry.key);
+				for (unsigned i = 0; i < nonleaf_entries.size(); i++) {
+					free(nonleaf_entries[i].key);
+				}
+				check = false; // no return_entry
 				return RC_SUCCESS;
 			} else {
 
@@ -646,16 +916,20 @@ RC IX_IndexHandle::insertEntry(short pageNumber, void * key, const RID rid, NONL
 				writeNonLeafPage(pageNumber, subEntriesA);
 
 				//cap nhat return_Entry, popEntry se tro toi newPage, subEntriesB
-				return_Entry.key = nonleaf_entries[popUpEntry].key;
+				memcpy(return_Entry.key, nonleaf_entries[popUpEntry].key, KEY_SIZE);
 				return_Entry.page = newPage;
 				check = true;
 				free(buffer);
+
+				for (unsigned i = 0; i < nonleaf_entries.size(); i++) {
+					free(nonleaf_entries[i].key);
+				}
 				return RC_SUCCESS;
 			}
 		}
 		//not split
 		return RC_SUCCESS;
-	}
+	} // end of NONLEAF_NODE
 
 	return RC_FAIL;
 

@@ -134,7 +134,7 @@ void testCase_2(const string tablename, const string attrname)
         cout << "Failed Opening Index..." << endl;
     }
     
-    unsigned numOfTuples = 1;
+    unsigned numOfTuples = 5;
     unsigned key = 100;
     rid.pageNum = key;
     rid.slotNum = key+1;
@@ -147,12 +147,23 @@ void testCase_2(const string tablename, const string attrname)
     for(unsigned i = 0; i < numOfTuples; i++) 
     {
         rc = ixHandle.InsertEntry(&age, rid);
+        age++;
+        //rid.pageNum = key;
+          //  rid.slotNum = key+1;
         if(rc != success)
         {
             cout << "Failed Inserting Entry..." << endl;
         }     
     }
-    
+
+    vector<RID> returned_data;
+    age=20;
+    rc = ixHandle.SearchEntry(&age,returned_data);
+    if (rc == success) {
+    	cout << "Found" << endl;
+    }
+    int pass =1;
+    if (pass!=1) {
     // Test Delete Entry
     rc = ixHandle.DeleteEntry(payload, rid);
     if(rc != success)
@@ -166,7 +177,7 @@ void testCase_2(const string tablename, const string attrname)
     {
         cout << "Entry deleted again...failure" << endl;
     }
-    
+    }
     // Test Close Index
     rc = ixManager->CloseIndex(ixHandle);
     if(rc == success)
