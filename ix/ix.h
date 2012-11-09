@@ -66,11 +66,16 @@ public:
 	//     For varchar: use 4 bytes to store the length of characters, then store the actual characters.
 	RC InsertEntry(void *key, const RID &rid); // Insert new index entry
 	RC DeleteEntry(void *key, const RID &rid); // Delete index entry
-	RC insertEntry(short pageNumber, void * key, const RID rid, NONLEAF_ENTRY &return_Entry, bool &check);
+	RC SearchEntry(const void *key, vector<RID> &result); // Delete index entry
+	RC insertEntry(short pageNumber, void *key, const RID rid, NONLEAF_ENTRY &return_Entry, bool &check);
 	RC readLeafEntries(PageNum pageNumber, vector<LEAF_ENTRY> &leaf_entries);
 	RC readNonLeafEntries(PageNum pageNumber, vector<NONLEAF_ENTRY> &middle_entries);
 	RC writeLeafPage(PageNum pageNumber, vector<LEAF_ENTRY> &leaf_Entries, short &neighBour);
 	RC writeNonLeafPage(PageNum pageNumber, vector<NONLEAF_ENTRY> &middle_Entries);
+	RC searchEntry(short pageNumber, const void *key, vector<RID> &result, bool &check);
+	RC GetNonLeafEntries(void* buffer, vector<NONLEAF_ENTRY> &nonleaf_entries);
+	RC GetLeafEntries(void* buffer, vector<LEAF_ENTRY> &leaf_entries);
+
 
 
 
@@ -90,6 +95,15 @@ public:
 
 	RC GetNextEntry(RID &rid); // Get next matching entry
 	RC CloseScan(); // Terminate index scan
+
+	PF_FileHandle handle;
+	CompOp condition;
+	void *value;
+	short root;
+	AttrType keyType;
+	short currentPage;
+	short currentIndex;
+
 };
 
 // print out the error message for a given return code
