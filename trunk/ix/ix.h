@@ -9,7 +9,6 @@
 #include "../rm/rm.h"
 
 #define IX_EOF (-1)  // end of the index scan
-
 //Declare vector leaf entry
 typedef struct {
 	void* key;
@@ -29,8 +28,6 @@ typedef struct {
 typedef enum {
 	RootNode = 0, BranchNode, LeafNode, RIDListNode, NonLeafNode
 } NodeType;
-
-
 
 class IX_IndexHandle;
 
@@ -73,14 +70,11 @@ public:
 	RC writeLeafPage(PageNum pageNumber, vector<LEAF_ENTRY> &leaf_Entries, short &neighBour);
 	RC writeNonLeafPage(PageNum pageNumber, vector<NONLEAF_ENTRY> &middle_Entries);
 	RC searchEntry(short pageNumber, const void *key, vector<RID> &result, bool &check);
-	RC GetNonLeafEntries(void* buffer, vector<NONLEAF_ENTRY> &nonleaf_entries);
-	RC GetLeafEntries(void* buffer, vector<LEAF_ENTRY> &leaf_entries);
-
-
+	RC deleteEntry(const void *key, const RID &rid, short pageNumber, bool &check);
 
 
 	PF_FileHandle fileHandle;
-	AttrType  keyType;
+	AttrType keyType;
 	short root;
 };
 
@@ -95,14 +89,19 @@ public:
 
 	RC GetNextEntry(RID &rid); // Get next matching entry
 	RC CloseScan(); // Terminate index scan
+	RC compare(void *entry);
+	RC findKey(PageNum page);
+	RC GetLeftMost(PageNum page);
 
 	PF_FileHandle handle;
-	CompOp condition;
-	void *value;
+	CompOp operation;
+
+	void *cond_value;
 	short root;
 	AttrType keyType;
 	short currentPage;
 	short currentIndex;
+	bool hasStartingPoint;
 
 };
 
