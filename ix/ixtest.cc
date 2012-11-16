@@ -162,8 +162,7 @@ void testCase_2(const string tablename, const string attrname)
     if (rc == success) {
     	cout << "Found" << endl;
     }
-    int pass =1;
-    if (pass!=1) {
+
     // Test Delete Entry
     rc = ixHandle.DeleteEntry(payload, rid);
     if(rc != success)
@@ -177,7 +176,7 @@ void testCase_2(const string tablename, const string attrname)
     {
         cout << "Entry deleted again...failure" << endl;
     }
-    }
+
     // Test Close Index
     rc = ixManager->CloseIndex(ixHandle);
     if(rc == success)
@@ -299,6 +298,7 @@ void testCase_4(const string tablename, const string attrname)
     while(ixScan->GetNextEntry(rid) == success) 
     {
         cout << rid.pageNum << " " << rid.slotNum << endl;
+
     }
     
     // Close Scan
