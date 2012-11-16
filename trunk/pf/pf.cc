@@ -153,7 +153,7 @@ RC PF_FileHandle::SetHandle(FILE* fHandle) {
 }
 
 RC PF_FileHandle::HasHandle() {
-	if (handle != NULL)return RC_SUCCESS;
+	if (handle != NULL) return RC_SUCCESS;
 	return RC_FAIL;
 
 }

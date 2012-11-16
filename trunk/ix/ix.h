@@ -71,7 +71,7 @@ public:
 	RC writeNonLeafPage(PageNum pageNumber, vector<NONLEAF_ENTRY> &middle_Entries);
 	RC searchEntry(short pageNumber, const void *key, vector<RID> &result, bool &check);
 	RC deleteEntry(const void *key, const RID &rid, short pageNumber, bool &check);
-
+	RC getMostLeftLeaf(short page, short &leftMostPage);
 
 	PF_FileHandle fileHandle;
 	AttrType keyType;

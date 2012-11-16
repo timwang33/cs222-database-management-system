@@ -1244,8 +1244,8 @@ RC RM::insertTuple(const string tableName, const void *data, RID &rid) {
 
 	PF_FileHandle myFileHandle;
 
-	getTableHandle(tableName, myFileHandle);
-
+	RC rc = getTableHandle(tableName, myFileHandle);
+if (rc == RC_FAIL) return rc;
 	void *content_buffer = malloc(PF_PAGE_SIZE);
 	void *header_buffer = malloc(PF_PAGE_SIZE);
 	void *temp_data = malloc(PF_PAGE_SIZE);
@@ -1320,7 +1320,8 @@ RC RM::deleteTuples(const string tableName) {
 	short offset = -1;
 	short N;
 
-	getTableHandle(tableName, fileHandle);
+	RC rc= getTableHandle(tableName, fileHandle);
+	if (rc == RC_FAIL) return rc;
 	PageNum pageNum = fileHandle.GetNumberOfPages();
 
 	//traverse bottom-up
@@ -1344,8 +1345,8 @@ RC RM::deleteTuple(const string tableName, const RID &rid) {
 	short offset, length;
 	short slot = (short) rid.slotNum;
 
-	getTableHandle(tableName, fileHandle);
-
+	RC rc = getTableHandle(tableName, fileHandle);
+if (rc == RC_FAIL) return rc;
 //read page rid.pageName contain tuple rid
 	fileHandle.ReadPage(rid.pageNum, buffer);
 
@@ -1362,10 +1363,10 @@ RC RM::deleteTuple(const string tableName, const RID &rid) {
 		newRID.pageNum = (unsigned) tempNum;
 		memcpy(&tempNum, (char*) buffer + offset + unit + unit,unit);
 		newRID.slotNum = (unsigned) tempNum;
+		writeSpecificOffset(buffer, slot, -1);
+		fileHandle.WritePage(rid.pageNum, buffer);
+		free(buffer);
 		return deleteTuple(tableName, newRID);
-	} else if (length < 0) {
-		cerr << "not the real record" << endl;
-		return RC_FAIL;
 	}
 
 //get tuple rid.slotNum and write -1 to offset of rid.slotNum
@@ -1388,8 +1389,8 @@ RC RM::updateTuple(const string tableName, const void *data, const RID &rid) {
 RC RM::updateTuple(const string tableName, const void *data, const RID &rid, bool inSearch) {
 
 	PF_FileHandle fileHandle;
-	getTableHandle(tableName, fileHandle);
-
+	RC rc =getTableHandle(tableName, fileHandle);
+ if (rc == RC_FAIL) return rc;
 	void * buffer;
 	buffer = malloc(PF_PAGE_SIZE);
 	fileHandle.ReadPage(rid.pageNum, buffer);
@@ -1506,8 +1507,8 @@ RC RM::updateTuple(const string tableName, const void *data, const RID &rid, boo
 
 RC RM::readTuple(const string tableName, const RID &rid, void *data) {
 	PF_FileHandle fileHandle;
-	getTableHandle(tableName, fileHandle);
-
+	RC rc = getTableHandle(tableName, fileHandle);
+if (rc == RC_FAIL) return rc;
 	short length, offset;
 	void * buffer = malloc(PF_PAGE_SIZE);
 
@@ -1561,7 +1562,8 @@ RC RM::readAttribute(const string tableName, const RID &rid, const string attrib
 	void *temp = malloc(200);
 
 	//get attributeName
-	getTableHandle(tableName, fileHandle);
+	RC rc = getTableHandle(tableName, fileHandle);
+	if (rc == RC_FAIL) return rc;
 	fileHandle.ReadPage(rid.pageNum, buffer);
 
 	getSpecificOffset(buffer, rid.slotNum, offset);
@@ -1634,12 +1636,12 @@ RC RM::readAttribute(const string tableName, const RID &rid, const string attrib
 
 RC RM::reorganizePage(const string tableName, const unsigned pageNumber) {
 	if (pageNumber == 0)
-		return RC_FAIL;
+		return RC_SUCCESS;
 
 	//read currentPage
 	PF_FileHandle fileHandle;
-	getTableHandle(tableName, fileHandle);
-
+	RC rc = getTableHandle(tableName, fileHandle);
+if (rc == RC_FAIL) return rc;
 	void * buffer = malloc(PF_PAGE_SIZE);
 	void * new_buffer = malloc(PF_PAGE_SIZE);
 	void * data = malloc(DATA_SIZE);
@@ -1852,8 +1854,8 @@ RC RM::addAttribute(const string tableName, const Attribute attr) {
 RC RM::reorganizeTable(const string tableName) {
 
 	PF_FileHandle tableFileHandle;
-	getTableHandle(tableName, tableFileHandle);
-
+	RC rc = getTableHandle(tableName, tableFileHandle);
+if (rc == RC_FAIL) return rc;
 
 	unsigned totalRuns = tableFileHandle.GetNumberOfPages();
 
@@ -2077,6 +2079,7 @@ RC RM_ScanIterator::getNextTuple(RID &rid, void *data) {
 }
 
 RC RM_ScanIterator::compare(void *tuple, void* value, int tuple_size, AttrType type) {
+	if (operation != NO_OP && value == NULL) return RC_FAIL;
 	switch (type) {
 	case TypeInt:
 		int int1;
@@ -2247,7 +2250,7 @@ RC RM_ScanIterator::close() {
 	currentPage = 1;
 	currentSlot = 1;
 
-	free(value);
+	if (value != NULL) free(value);
 	return RC_SUCCESS;
 }
 
