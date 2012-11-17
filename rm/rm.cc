@@ -1641,7 +1641,7 @@ RC RM::reorganizePage(const string tableName, const unsigned pageNumber) {
 	//read currentPage
 	PF_FileHandle fileHandle;
 	RC rc = getTableHandle(tableName, fileHandle);
-if (rc == RC_FAIL) return rc;
+	if (rc == RC_FAIL) return rc;
 	void * buffer = malloc(PF_PAGE_SIZE);
 	void * new_buffer = malloc(PF_PAGE_SIZE);
 	void * data = malloc(DATA_SIZE);
