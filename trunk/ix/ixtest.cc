@@ -552,11 +552,14 @@ void testCase_6(const string tablename, const string attrname)
     // Test IndexScan Iterator    
     while(ixScan->GetNextEntry(rid) == success) 
     {
-        if(rid.pageNum % 500 == 0)
+    	if (rid.pageNum == 256)
+    		cout << "Wait" << endl;
+        if(rid.pageNum % 1 == 0)
             cout << rid.pageNum << " " << rid.slotNum << endl;
         if ((rid.pageNum > 2000 && rid.pageNum < 6000) || rid.pageNum >= 6500)
         {
-            cout << "Wrong entries output...failure" << endl;
+        	cerr << "Error" << rid.pageNum << " " << rid.slotNum << endl;
+            cerr << "Wrong entries output...failure" << endl;
         }
     }
 
@@ -1186,9 +1189,9 @@ int main()
 
     // Extra Credit Work
     // Duplicat Entries
-    testCase_extra_1("tbl_employee", "Age");
+    //testCase_extra_1("tbl_employee", "Age");
     // TypeVarChar
-    testCase_extra_2("tbl_employee", "EmpName");
+  //  testCase_extra_2("tbl_employee", "EmpName");
     
     return 0;
 }

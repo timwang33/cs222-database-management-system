@@ -102,6 +102,7 @@ public:
 	short currentPage;
 	short currentIndex;
 	bool hasStartingPoint;
+	RID past_RID;
 
 };
 

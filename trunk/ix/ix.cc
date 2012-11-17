@@ -125,9 +125,12 @@ void CreateNewPage(void *buffer, NodeType type) {
 	WriteNodeType(buffer, type);
 	if (type == LeafNode) {
 		WritePtrSize(buffer, 4);
+		WriteFreeSpace(buffer, PF_PAGE_SIZE - 8);
 	} else { // non-leaf node has ptr of size 2: page number
 		WritePtrSize(buffer, 2);
+		WriteFreeSpace(buffer, PF_PAGE_SIZE - 10);
 	}
+
 }
 
 RC GetLeafEntries(void* buffer, vector<LEAF_ENTRY> &leaf_entries) {
@@ -213,12 +216,12 @@ RC IX_Manager::CreateIndex(const string tableName, const string attributeName) {
 		//Root Page
 		CreateNewPage(buffer, NonLeafNode);
 		WriteStartingPage(buffer, 2); // pointer 0, points to page 2
-		WriteFreeSpace(buffer, PF_PAGE_SIZE - 10);
+
 		tempHandle.WritePage(1, buffer);
 
 		//Leaf Page
 		CreateNewPage(buffer, LeafNode);
-		WriteFreeSpace(buffer, PF_PAGE_SIZE - 8);
+
 		tempHandle.WritePage(2, buffer);
 
 		free(buffer);
@@ -469,7 +472,7 @@ RC IX_IndexHandle::getMostLeftLeaf(short page, short &leftMostPage) {
 }
 
 RC CalOffsetOfEmptyPage(short index, short &offset) {
-	offset = PF_PAGE_SIZE - (index+2) * unit;
+	offset = PF_PAGE_SIZE - (index + 2) * unit;
 }
 //
 void writeEmptyPageToHeader(void * buffer, short pageNumber, short index) {
@@ -539,23 +542,26 @@ RC IX_IndexHandle::deleteEntry(const void *key, const RID &rid, short pageNumber
 							getMostLeftLeaf(root, leftMostPage);
 
 							// traverse to find the page before this page
-							short temp_Neighbor = 0, previousPage = 0; //tim trang truoc pageNumber
+							short temp_Neighbor, previousPage; //tim trang truoc pageNumber
 							temp_Neighbor = leftMostPage; //chinh bang no
-							//previousPage = leftMostPage;
+							previousPage = leftMostPage;
 							void *temp = malloc(PF_PAGE_SIZE);
 							while (temp_Neighbor != pageNumber) {
 								previousPage = temp_Neighbor;
 								fileHandle.ReadPage(previousPage, temp);
 								GetNeighbor(temp, temp_Neighbor);
 							}
-							free(temp);
+if((PageNum)previousPage!= pageNumber) {
 							// update that newly found page's neighbor
 							fileHandle.ReadPage(previousPage, temp);
 							WriteNeighbor(temp, neighbor);
 							fileHandle.WritePage(previousPage, temp);
+}
 							CreateNewPage(buffer, LeafNode);
 							fileHandle.WritePage(pageNumber, buffer);
 
+							free(temp);
+							if (leftMostPage!=pageNumber || neighbor >0) {
 							void * header_page = malloc(PF_PAGE_SIZE);
 							fileHandle.ReadPage(0, header_page);
 							short N;
@@ -565,6 +571,8 @@ RC IX_IndexHandle::deleteEntry(const void *key, const RID &rid, short pageNumber
 							WriteTotalEntries(header_page, N);
 							fileHandle.WritePage(0, header_page);
 							free(header_page);
+							}
+							check = true;
 							return RC_SUCCESS;
 						}
 						done = true;
@@ -624,9 +632,12 @@ RC IX_IndexHandle::deleteEntry(const void *key, const RID &rid, short pageNumber
 				erased = true;
 			}
 
-			if (nonleaf_entries.size() == 0 && erased)
+			if (nonleaf_entries.size() == 0 && erased) {
 				check = true;
-			else check = false;
+			} else {
+				check = false;
+			}
+
 			writeNonLeafPage(pageNumber, nonleaf_entries);
 			free(buffer);
 			return RC_SUCCESS;
@@ -739,8 +750,10 @@ RC IX_IndexScan::OpenScan(const IX_IndexHandle &indexHandle, CompOp compOp, void
 	} else
 		cond_value = NULL;
 
-		this->handle = indexHandle.fileHandle;
-if (this->handle.HasHandle() != RC_SUCCESS) return RC_FAIL;
+	this->handle = indexHandle.fileHandle;
+	if (this->handle.HasHandle() != RC_SUCCESS
+	)
+		return RC_FAIL;
 	this->root = indexHandle.root;
 	this->keyType = indexHandle.keyType;
 	if (compOp == NE_OP)
@@ -750,15 +763,16 @@ if (this->handle.HasHandle() != RC_SUCCESS) return RC_FAIL;
 }
 
 RC IX_IndexScan::compare(void *entry) {
-	if (operation != NO_OP && cond_value == NULL
-	)
+	if (operation != NO_OP && cond_value == NULL) {
 		return RC_FAIL;
+	}
 	switch (keyType) {
 	case TypeInt:
 		int int1;
 		memcpy(&int1, (char*) entry, KEY_SIZE);
 		int int2;
-		if (cond_value != NULL)
+		if (cond_value != NULL
+		)
 			memcpy(&int2, (char*) cond_value, KEY_SIZE);
 		switch (operation) {
 		case EQ_OP:
@@ -801,8 +815,9 @@ RC IX_IndexScan::compare(void *entry) {
 		float real1;
 		memcpy(&real1, (char*) entry, KEY_SIZE);
 		float real2;
-		if (cond_value != NULL)
-		memcpy(&real2, (char*) cond_value, KEY_SIZE);
+		if (cond_value != NULL
+		)
+			memcpy(&real2, (char*) cond_value, KEY_SIZE);
 		switch (operation) {
 		case EQ_OP:
 			if (real1 == real2)
@@ -861,12 +876,12 @@ RC IX_IndexScan::findKey(PageNum page) {
 
 		while (index < nonLeaf_entries.size()) {
 
-
-				if (isLess(nonLeaf_entries[index].key,cond_value,keyType) == RC_SUCCESS)
-					index++;
-				else
-					break;
-			}
+			if (isLess(nonLeaf_entries[index].key, cond_value, keyType) == RC_SUCCESS
+			)
+				index++;
+			else
+				break;
+		}
 
 		short nextPage = 0;
 		if (index == 0) {
@@ -894,7 +909,7 @@ RC IX_IndexScan::findKey(PageNum page) {
 
 		if (found == true) {
 			currentPage = (short) page;
-			currentIndex = index+1;
+			currentIndex = index + 1;
 			free(buffer);
 			return RC_SUCCESS;
 		} else {
@@ -965,6 +980,8 @@ RC IX_IndexScan::GetNextEntry(RID &rid) {
 		}
 		if (rc == RC_SUCCESS) {
 			hasStartingPoint = true;
+			past_RID.pageNum = 0;
+			past_RID.slotNum = 0;
 		}
 	}
 
@@ -973,22 +990,41 @@ RC IX_IndexScan::GetNextEntry(RID &rid) {
 
 	void *buffer = malloc(PF_PAGE_SIZE);
 	bool pass = false;
+	char ptr_size = 0;
+	short offset = 0;
 	while (pass == false) {
 		handle.ReadPage(currentPage, buffer); // that page must be a LEAF
+		GetPtrSize(buffer, ptr_size);
 		short totals = 0;
 		GetTotalEntries(buffer, totals);
+
+		//check to see if entries sequence are still intact?
+if (past_RID.pageNum != 0 && past_RID.slotNum != 0){
+		short val;
+		CalcPtrOffset(currentIndex - 1, LeafNode, ptr_size, offset);
+		memcpy(&val, (char*) buffer + offset, unit);
+		bool okay = false;
+		if (past_RID.pageNum == (PageNum) val) {
+			memcpy(&val, (char*) buffer + offset + unit,unit);
+			if (past_RID.slotNum == (PageNum) val) {
+				okay = true;
+			}
+		}
+		if (okay == false)
+			currentIndex--;
+}
 		if (currentIndex > totals) {
 			GetNeighbor(buffer, currentPage);
-			if (currentPage <= 0) return IX_EOF;
+			if (currentPage <= 0)
+				return IX_EOF;
 			currentIndex = 1;
+			past_RID.pageNum = 0;
+			past_RID.slotNum = 0;
 
 		} else
 			pass = true;
 	}
 
-	short offset = 0;
-	char ptr_size = 0;
-	GetPtrSize(buffer, ptr_size);
 	CalcKeyOffset(currentIndex, LeafNode, ptr_size, offset);
 	void *key_value = malloc(KEY_SIZE);
 	memcpy(key_value, (char*) buffer + offset, KEY_SIZE);
@@ -997,8 +1033,10 @@ RC IX_IndexScan::GetNextEntry(RID &rid) {
 		CalcPtrOffset(currentIndex, LeafNode, ptr_size, offset);
 		memcpy(&val, (char*) buffer + offset, unit);
 		rid.pageNum = (unsigned) val;
+		past_RID.pageNum = (unsigned) val;
 		memcpy(&val, (char*) buffer + offset + unit,unit);
 		rid.slotNum = (unsigned) val;
+		past_RID.slotNum = (unsigned) val;
 		currentIndex++;
 		free(buffer);
 		return RC_SUCCESS;
@@ -1108,8 +1146,8 @@ RC IX_IndexHandle::writeLeafPage(PageNum pageNumber, vector<LEAF_ENTRY> &leaf_En
 	void* buffer = malloc(PF_PAGE_SIZE);
 	if (pageNumber < fileHandle.GetNumberOfPages()) {
 		fileHandle.ReadPage(pageNumber, buffer);
-	}else {
-		CreateNewPage(buffer,LeafNode);
+	} else {
+		CreateNewPage(buffer, LeafNode);
 	}
 	char ptr_size = 0;
 	GetPtrSize(buffer, ptr_size);
@@ -1127,11 +1165,11 @@ RC IX_IndexHandle::writeLeafPage(PageNum pageNumber, vector<LEAF_ENTRY> &leaf_En
 	}
 
 	short freeSpace = PF_PAGE_SIZE - 8 * leaf_Entries.size();
-	//2 byte N, 2 byte freeSpace, 2 byte neighbor, 1 byte type, 1 byte sizeOfPointer
+//2 byte N, 2 byte freeSpace, 2 byte neighbor, 1 byte type, 1 byte sizeOfPointer
 
 	freeSpace = freeSpace - 2 - 2 - 2 - 1 - 1;
 
-	//update N and freeSpace
+//update N and freeSpace
 	WriteTotalEntries(buffer, totals);
 
 	WriteFreeSpace(buffer, freeSpace);
@@ -1143,10 +1181,10 @@ RC IX_IndexHandle::writeLeafPage(PageNum pageNumber, vector<LEAF_ENTRY> &leaf_En
 		neighBor = neighBour;
 	}
 
-	//update neighbor
+//update neighbor
 	WriteNeighbor(buffer, neighBor);
 
-	//write back to page
+//write back to page
 	fileHandle.WritePage(pageNumber, buffer);
 	free(buffer);
 
@@ -1157,8 +1195,8 @@ RC IX_IndexHandle::writeNonLeafPage(PageNum pageNumber, vector<NONLEAF_ENTRY> &n
 	void* buffer = malloc(PF_PAGE_SIZE);
 	if (pageNumber < fileHandle.GetNumberOfPages()) {
 		fileHandle.ReadPage(pageNumber, buffer);
-	}else {
-		CreateNewPage(buffer,NonLeafNode);
+	} else {
+		CreateNewPage(buffer, NonLeafNode);
 	}
 	char ptr_size;
 	GetPtrSize(buffer, ptr_size);
@@ -1175,14 +1213,14 @@ RC IX_IndexHandle::writeNonLeafPage(PageNum pageNumber, vector<NONLEAF_ENTRY> &n
 	}
 	short freeSpace = PF_PAGE_SIZE - (2 + 6 * nonleaf_entries.size());
 
-	//2 byte N, 2 byte freeSpace, 2 byte neighbor, 1 byte type, 1 byte sizeOfPointer
+//2 byte N, 2 byte freeSpace, 2 byte neighbor, 1 byte type, 1 byte sizeOfPointer
 	freeSpace = freeSpace - 2 - 2 - 2 - 1 - 1;
 
-	//update N and freeSpace
+//update N and freeSpace
 	WriteTotalEntries(buffer, totals);
 	WriteFreeSpace(buffer, freeSpace);
 
-	//write back to page
+//write back to page
 	fileHandle.WritePage(pageNumber, buffer);
 	free(buffer);
 	return RC_SUCCESS;
@@ -1205,11 +1243,10 @@ RC IX_IndexHandle::insertEntry(short pageNumber, void * key, const RID rid, NONL
 		GetLeafEntries(buffer, leaf_entries);
 
 		for (unsigned i = 0; i < leaf_entries.size(); i++) {
-			if (isEqual(key, leaf_entries[i].key, keyType) == RC_SUCCESS ) {
-				if (rid.pageNum == (unsigned)leaf_entries[i].page && rid.slotNum == (unsigned)leaf_entries[i].slot)
+			if (isEqual(key, leaf_entries[i].key, keyType) == RC_SUCCESS) {
+				if (rid.pageNum == (unsigned) leaf_entries[i].page && rid.slotNum == (unsigned) leaf_entries[i].slot)
 					return RC_FAIL;
-			}
-			else if (isLess(key,leaf_entries[i].key,keyType) == RC_SUCCESS) {
+			} else if (isLess(key, leaf_entries[i].key, keyType) == RC_SUCCESS) {
 				break;
 			}
 		}
@@ -1230,10 +1267,10 @@ RC IX_IndexHandle::insertEntry(short pageNumber, void * key, const RID rid, NONL
 
 		// print
 		/*LEAF_ENTRY entry;
-		for (unsigned i = 0; i < leaf_entries.size(); i++) {
-			entry = leaf_entries[i];
-			printLeafEntry(entry, keyType);
-		}*/
+		 for (unsigned i = 0; i < leaf_entries.size(); i++) {
+		 entry = leaf_entries[i];
+		 printLeafEntry(entry, keyType);
+		 }*/
 
 		if (freeSpace >= 8) {
 			writeLeafPage(pageNumber, leaf_entries, neighbor);
@@ -1329,20 +1366,19 @@ RC IX_IndexHandle::insertEntry(short pageNumber, void * key, const RID rid, NONL
 				subEntriesB.push_back(copyLeaf);
 			}
 
-			short newPage =0;
+			short newPage = 0;
 			//check HeaderPage to see if any old empty page is available
 			void* header_page = malloc(PF_PAGE_SIZE);
-			fileHandle.ReadPage(0,header_page);
+			fileHandle.ReadPage(0, header_page);
 			short total;
-			GetTotalEntries(header_page,total);
-			if (total >0) {
-				readEmptyPageFromHeader(header_page,newPage,total);
-				writeEmptyPageToHeader(header_page,0,total);
-				WriteTotalEntries(header_page,total-1);
-				fileHandle.WritePage(0,header_page);
-			}
-			else
-			newPage = (short) fileHandle.GetNumberOfPages();
+			GetTotalEntries(header_page, total);
+			if (total > 0) {
+				readEmptyPageFromHeader(header_page, newPage, total);
+				writeEmptyPageToHeader(header_page, 0, total);
+				WriteTotalEntries(header_page, total - 1);
+				fileHandle.WritePage(0, header_page);
+			} else
+				newPage = (short) fileHandle.GetNumberOfPages();
 			// write back to old leaf page
 			writeLeafPage(newPage, subEntriesB, neighbor);
 
@@ -1368,7 +1404,8 @@ RC IX_IndexHandle::insertEntry(short pageNumber, void * key, const RID rid, NONL
 //compare key with page entries
 		unsigned index = 0;
 		while (index < nonleaf_entries.size()) {
-			if (isLess(nonleaf_entries[index].key, key, keyType) == RC_SUCCESS)
+			if (isLess(nonleaf_entries[index].key, key, keyType) == RC_SUCCESS
+			)
 				index++;
 			else
 				break;
@@ -1382,7 +1419,9 @@ RC IX_IndexHandle::insertEntry(short pageNumber, void * key, const RID rid, NONL
 			nextPage = nonleaf_entries[index - 1].page;
 		}
 		RC rc = insertEntry(nextPage, key, rid, return_Entry, check);
-if (rc == RC_FAIL) return rc;
+		if (rc == RC_FAIL
+		)
+			return rc;
 		if (check == true) { //have Return_entry
 
 			nonleaf_entries.push_back(return_Entry);
