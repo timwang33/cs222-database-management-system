@@ -4,14 +4,24 @@
 using namespace std;
 
 bool leafCompareInt(LEAF_ENTRY leaf1, LEAF_ENTRY leaf2) {
-
+if ((*(int*) leaf1.key == *(int*) leaf2.key)) {
+	if (leaf1.page == leaf2.page)
+		 return (leaf1.slot < leaf2.slot);
+	else return (leaf1.page < leaf2.page);
+}
+else
 	return (*(int*) leaf1.key < *(int*) leaf2.key);
 
 }
 
 bool leafCompareReal(LEAF_ENTRY leaf1, LEAF_ENTRY leaf2) {
-
-	return (*(float*) leaf1.key < *(float*) leaf2.key);
+	if ((*(float*) leaf1.key == *(float*) leaf2.key)) {
+		if (leaf1.page == leaf2.page)
+			 return (leaf1.slot < leaf2.slot);
+		else return (leaf1.page < leaf2.page);
+	}
+	else
+		return (*(float*) leaf1.key < *(float*) leaf2.key);
 
 }
 
@@ -120,10 +130,18 @@ void GetNeighbor(void *buffer, short &pageNumber) {
 	memcpy(&pageNumber, (char*) buffer + END_OF_PAGE - 3 * unit,unit);
 }
 
+void GetOverflowPage(void * buffer, short &overflow_page) {
+	memcpy(&overflow_page, (char*) buffer + END_OF_PAGE - 5 * unit,unit);
+}
+
+void WriteOverflowPage(void * buffer, short overflow_page) {
+	memcpy((char*) buffer + END_OF_PAGE - 5 * unit, &overflow_page,unit);
+}
+
 void CreateNewPage(void *buffer, NodeType type) {
 	memset(buffer, 0, PF_PAGE_SIZE);
 	WriteNodeType(buffer, type);
-	if (type == LeafNode) {
+	if (type == LeafNode || type == OverflowNode) {
 		WritePtrSize(buffer, 4);
 		WriteFreeSpace(buffer, PF_PAGE_SIZE - 8);
 	} else { // non-leaf node has ptr of size 2: page number
@@ -311,7 +329,7 @@ IX_IndexHandle::~IX_IndexHandle() { // Destructor
 RC IX_IndexHandle::InsertEntry(void *key, const RID &rid) { // Insert new index entry
 	NONLEAF_ENTRY return_entry;
 	return_entry.key = malloc(KEY_SIZE);
-	bool has_return;
+	bool has_return = false;
 	if (key == NULL || root == -1) {
 		return RC_FAIL;
 	}
@@ -321,76 +339,33 @@ RC IX_IndexHandle::InsertEntry(void *key, const RID &rid) { // Insert new index 
 	if (rc == RC_FAIL) {
 		return rc;
 	}
-	if (has_return) {
+	if (has_return == true) {
 		short old_root = root;
-		// read vector in page root
-		void *buffer = malloc(PF_PAGE_SIZE);
-		fileHandle.ReadPage(root, buffer);
+		root = (short) fileHandle.GetNumberOfPages(); // new ROOT
 
-		short freeSpace = 0;
-
-		GetFreeSpace(buffer, freeSpace);
+		void *header_page = malloc(PF_PAGE_SIZE);
+		fileHandle.ReadPage(0, header_page);
+		WriteStartingPage(header_page, root);
+		fileHandle.WritePage(0, header_page);
+		free(header_page);
 
 		vector<NONLEAF_ENTRY> nonleaf_entries;
-		GetNonLeafEntries(buffer, nonleaf_entries);
-		// insert return entry
-
 		nonleaf_entries.push_back(return_entry);
-		if (nonleaf_entries.size() > 1) {
-			if (keyType == TypeInt)
-				sort(nonleaf_entries.begin(), nonleaf_entries.end(), nonLeafCompareInt);
-			else if (keyType == TypeReal)
-				sort(nonleaf_entries.begin(), nonleaf_entries.end(), nonLeafCompareReal);
-		}
-		if (freeSpace >= 6) {
-			writeNonLeafPage(root, nonleaf_entries);
-			free(buffer);
-			for (unsigned i = 0; i < nonleaf_entries.size(); i++)
-				free(nonleaf_entries[i].key);
-			return RC_SUCCESS;
-		} else {
-			short popUpEntry = nonleaf_entries.size() / 2;
-			//split to 2 pages,
-			// break into 2 subvector
-			vector<NONLEAF_ENTRY> subEntriesA, subEntriesB;
-			NONLEAF_ENTRY copyNode;
+		writeNonLeafPage(root, nonleaf_entries);
 
-			for (int i = 0; i < (int) popUpEntry; i++) {
-				copyNode = nonleaf_entries[i];
-				subEntriesA.push_back(copyNode);
-			}
-			for (int i = popUpEntry + 1; i <= nonleaf_entries.size(); i++) {
-				copyNode = nonleaf_entries[i];
-				subEntriesB.push_back(copyNode);
-			}
+		void *buffer = malloc(PF_PAGE_SIZE);
+		fileHandle.ReadPage(root, buffer);
+		WriteStartingPage(buffer, old_root);
+		fileHandle.WritePage(root, buffer);
+		free(buffer);
 
-			short newPage = (short) (fileHandle.GetNumberOfPages());
-			// write back to old pages
-			writeNonLeafPage(newPage, subEntriesB);
-			writeNonLeafPage(root, subEntriesA);
+		for (unsigned i = 0; i < nonleaf_entries.size(); i++)
+			free(nonleaf_entries[i].key);
 
-			root = (short) fileHandle.GetNumberOfPages(); // new ROOT
-			void *header_page = malloc(PF_PAGE_SIZE);
-			fileHandle.ReadPage(0, header_page);
-			WriteStartingPage(header_page, root);
-			fileHandle.WritePage(0, header_page);
+		return RC_SUCCESS;
 
-			CreateNewPage(buffer, NonLeafNode);
-			WriteStartingPage(buffer, old_root);
-			memcpy((char*) buffer + unit,nonleaf_entries[popUpEntry].key,KEY_SIZE);
-			memcpy((char*) buffer + unit + KEY_SIZE, &newPage,unit);
-			WriteFreeSpace(buffer, PF_PAGE_SIZE - 16);
-			fileHandle.WritePage(root, buffer);
-
-			free(buffer);
-			free(header_page);
-			for (unsigned i = 0; i < nonleaf_entries.size(); i++)
-				free(nonleaf_entries[i].key);
-
-			return RC_SUCCESS;
-
-		}
 	}
+
 	return RC_SUCCESS;
 }
 
@@ -504,7 +479,7 @@ RC IX_IndexHandle::deleteEntry(const void *key, const RID &rid, short pageNumber
 	GetNodeType(buffer, node_type);
 
 	GetPtrSize(buffer, ptr_size);
-	if (node_type == LeafNode) {
+	if (node_type == LeafNode || node_type == OverflowNode) {
 		vector<LEAF_ENTRY> leaf_entries;
 		GetLeafEntries(buffer, leaf_entries);
 		GetNeighbor(buffer, neighbor);
@@ -551,26 +526,26 @@ RC IX_IndexHandle::deleteEntry(const void *key, const RID &rid, short pageNumber
 								fileHandle.ReadPage(previousPage, temp);
 								GetNeighbor(temp, temp_Neighbor);
 							}
-if((PageNum)previousPage!= pageNumber) {
-							// update that newly found page's neighbor
-							fileHandle.ReadPage(previousPage, temp);
-							WriteNeighbor(temp, neighbor);
-							fileHandle.WritePage(previousPage, temp);
-}
+							if ((PageNum) previousPage != pageNumber) {
+								// update that newly found page's neighbor
+								fileHandle.ReadPage(previousPage, temp);
+								WriteNeighbor(temp, neighbor);
+								fileHandle.WritePage(previousPage, temp);
+							}
 							CreateNewPage(buffer, LeafNode);
 							fileHandle.WritePage(pageNumber, buffer);
 
 							free(temp);
-							if (leftMostPage!=pageNumber || neighbor >0) {
-							void * header_page = malloc(PF_PAGE_SIZE);
-							fileHandle.ReadPage(0, header_page);
-							short N;
-							GetTotalEntries(header_page, N);
-							N++;
-							writeEmptyPageToHeader(header_page, pageNumber, N);
-							WriteTotalEntries(header_page, N);
-							fileHandle.WritePage(0, header_page);
-							free(header_page);
+							if (leftMostPage != pageNumber || neighbor > 0) {
+								void * header_page = malloc(PF_PAGE_SIZE);
+								fileHandle.ReadPage(0, header_page);
+								short N;
+								GetTotalEntries(header_page, N);
+								N++;
+								writeEmptyPageToHeader(header_page, pageNumber, N);
+								WriteTotalEntries(header_page, N);
+								fileHandle.WritePage(0, header_page);
+								free(header_page);
 							}
 							check = true;
 							return RC_SUCCESS;
@@ -586,14 +561,32 @@ if((PageNum)previousPage!= pageNumber) {
 		}
 		free(buffer);
 		if (done == false) {
-			return RC_FAIL;
+			// check overflowpage;
+			void *overflow = malloc(PF_PAGE_SIZE);
+			NodeType nodeType;
+			if (neighbor > 0) {
+				fileHandle.ReadPage(neighbor, overflow);
+				GetNodeType(overflow, nodeType);
+				if (nodeType == OverflowNode) {
+					RC rc = deleteEntry(key, rid, neighbor, check);
+					free(overflow);
+					return rc;
+
+				} else {
+					free(overflow);
+					return RC_FAIL;
+				}
+			} else {
+				free(overflow);
+				return RC_FAIL;
+			}
 		} else
 			return RC_SUCCESS;
 
 	}
 
 	else //Ko phai leafNode
-	{
+	if (node_type == NonLeafNode) {
 
 		vector<NONLEAF_ENTRY> nonleaf_entries;
 		GetNonLeafEntries(buffer, nonleaf_entries);
@@ -999,20 +992,20 @@ RC IX_IndexScan::GetNextEntry(RID &rid) {
 		GetTotalEntries(buffer, totals);
 
 		//check to see if entries sequence are still intact?
-if (past_RID.pageNum != 0 && past_RID.slotNum != 0){
-		short val;
-		CalcPtrOffset(currentIndex - 1, LeafNode, ptr_size, offset);
-		memcpy(&val, (char*) buffer + offset, unit);
-		bool okay = false;
-		if (past_RID.pageNum == (PageNum) val) {
-			memcpy(&val, (char*) buffer + offset + unit,unit);
-			if (past_RID.slotNum == (PageNum) val) {
-				okay = true;
+		if (past_RID.pageNum != 0 && past_RID.slotNum != 0) {
+			short val;
+			CalcPtrOffset(currentIndex - 1, LeafNode, ptr_size, offset);
+			memcpy(&val, (char*) buffer + offset, unit);
+			bool okay = false;
+			if (past_RID.pageNum == (PageNum) val) {
+				memcpy(&val, (char*) buffer + offset + unit,unit);
+				if (past_RID.slotNum == (PageNum) val) {
+					okay = true;
+				}
 			}
+			if (okay == false)
+				currentIndex--;
 		}
-		if (okay == false)
-			currentIndex--;
-}
 		if (currentIndex > totals) {
 			GetNeighbor(buffer, currentPage);
 			if (currentPage <= 0)
@@ -1238,14 +1231,17 @@ RC IX_IndexHandle::insertEntry(short pageNumber, void * key, const RID rid, NONL
 	GetNodeType(buffer, node_type);
 	GetNeighbor(buffer, neighbor);
 
-	if (node_type == LeafNode) {
+	if (node_type == LeafNode || node_type == OverflowNode) {
 		vector<LEAF_ENTRY> leaf_entries;
 		GetLeafEntries(buffer, leaf_entries);
 
 		for (unsigned i = 0; i < leaf_entries.size(); i++) {
 			if (isEqual(key, leaf_entries[i].key, keyType) == RC_SUCCESS) {
-				if (rid.pageNum == (unsigned) leaf_entries[i].page && rid.slotNum == (unsigned) leaf_entries[i].slot)
+				if (rid.pageNum == (unsigned) leaf_entries[i].page && rid.slotNum == (unsigned) leaf_entries[i].slot) {
+
+					free(buffer);
 					return RC_FAIL;
+				}
 			} else if (isLess(key, leaf_entries[i].key, keyType) == RC_SUCCESS) {
 				break;
 			}
@@ -1256,152 +1252,256 @@ RC IX_IndexHandle::insertEntry(short pageNumber, void * key, const RID rid, NONL
 		memcpy(leaf.key, key, KEY_SIZE);
 		leaf.page = (short) rid.pageNum;
 		leaf.slot = (short) rid.slotNum;
-		printLeafEntry(leaf, this->keyType);
-		leaf_entries.push_back(leaf);
-		if (leaf_entries.size() > 1) {
-			if (keyType == TypeInt)
-				sort(leaf_entries.begin(), leaf_entries.end(), leafCompareInt);
-			else if (keyType == TypeReal)
-				sort(leaf_entries.begin(), leaf_entries.end(), leafCompareReal);
-		}
-
-		// print
-		/*LEAF_ENTRY entry;
-		 for (unsigned i = 0; i < leaf_entries.size(); i++) {
-		 entry = leaf_entries[i];
-		 printLeafEntry(entry, keyType);
-		 }*/
-
+		//printLeafEntry(leaf, this->keyType);
+		// some cases require free(leaf.key)
 		if (freeSpace >= 8) {
+			leaf_entries.push_back(leaf);
+			if (leaf_entries.size() > 1) {
+				if (keyType == TypeInt)
+					sort(leaf_entries.begin(), leaf_entries.end(), leafCompareInt);
+				else if (keyType == TypeReal)
+					sort(leaf_entries.begin(), leaf_entries.end(), leafCompareReal);
+			}
+
+			// print
+			/*LEAF_ENTRY entry;
+			 for (unsigned i = 0; i < leaf_entries.size(); i++) {
+			 entry = leaf_entries[i];
+			 printLeafEntry(entry, keyType);
+			 }*/
+
 			writeLeafPage(pageNumber, leaf_entries, neighbor);
 			free(buffer);
-			check = false; // no Return_Entry
 
 			for (unsigned i = 0; i < leaf_entries.size(); i++) {
 				free(leaf_entries[i].key);
 			}
 			return RC_SUCCESS;
 		} else {
-			check = true; // has Return_Entry
+
+			void *minKey = malloc(KEY_SIZE);
+			void *maxKey = malloc(KEY_SIZE);
 
 			//push new entry first, after that divide page to 2 pages
-
+			int position = 0;
 			unsigned N = leaf_entries.size();
-			unsigned position = 0;
 			short direction = 0;
-			if (this->keyType == TypeInt) {
-				int minKey, maxKey, midKey;
 
-				memcpy(&minKey, leaf_entries[0].key, KEY_SIZE);
-				memcpy(&maxKey, leaf_entries[N - 1].key, KEY_SIZE);
-				memcpy(&midKey, leaf_entries[N / 2].key, KEY_SIZE);
-				if (minKey == maxKey) {
-					cerr << "Leaf Node full of same-key entries - Illegal" << endl;
-					//assert(0==1);
-					return RC_FAIL;
-				} else {
-					if (midKey == maxKey) {
-						direction = -1;
+			memcpy(minKey, leaf_entries[0].key, KEY_SIZE);
+			memcpy(maxKey, leaf_entries[N - 1].key, KEY_SIZE);
+
+			if (isLess(minKey, maxKey, keyType) == RC_SUCCESS) {
+				void * midKey = malloc(KEY_SIZE);
+				leaf_entries.push_back(leaf);
+				N++;
+				if (leaf_entries.size() > 1) {
+					if (keyType == TypeInt)
+						sort(leaf_entries.begin(), leaf_entries.end(), leafCompareInt);
+					else if (keyType == TypeReal)
+						sort(leaf_entries.begin(), leaf_entries.end(), leafCompareReal);
+				}
+				memcpy(minKey, leaf_entries[0].key, KEY_SIZE);
+				memcpy(maxKey, leaf_entries[N - 1].key, KEY_SIZE);
+				memcpy(midKey, leaf_entries[N / 2].key, KEY_SIZE);
+
+				if (isEqual(midKey, maxKey, keyType) == RC_SUCCESS) {
+					direction = -1;
+				} else
+					direction = 1;
+
+				position = N / 2 + direction;
+				void *nextKey = malloc(KEY_SIZE);
+				while (position >= 0 && position < N) {
+					memcpy(nextKey, leaf_entries[position].key, KEY_SIZE);
+					if (isEqual(nextKey, midKey, keyType) == RC_SUCCESS) {
+						position += direction;
 					} else {
-						direction = 1;
-					}
-
-					position = N / 2 + direction;
-					int next = 0;
-					while (position >= 0 && position < N) {
-						memcpy(&next, leaf_entries[position].key, KEY_SIZE);
-						if (next != midKey) {
-							break;
-						} else {
-							position += direction;
-						}
-
+						break;
 					}
 				}
-			} else if (this->keyType == TypeReal) {
-				float minKey, maxKey, midKey;
 
-				memcpy(&minKey, leaf_entries[0].key, KEY_SIZE);
-				memcpy(&maxKey, leaf_entries[N - 1].key, KEY_SIZE);
-				memcpy(&midKey, leaf_entries[N / 2].key, KEY_SIZE);
-				if (minKey == maxKey) {
-					cerr << "Leaf Node full of same-key entries - Illegal" << endl;
-					//assert(0==1);
-					return RC_FAIL;
-				} else {
-					if (midKey == maxKey) {
-						direction = -1;
-					} else {
-						direction = 1;
-					}
+				if (direction == 1) {
+					position--;
+				}
+				short copyUpEntry = (short) position;
 
-					position = N / 2 + direction;
-					float next = 0;
-					while (position >= 0 && position < N) {
-						memcpy(&next, leaf_entries[position].key, KEY_SIZE);
-						if (next != midKey) {
-							break;
-						} else {
-							position += direction;
+				// create 2 new pages
+				vector<LEAF_ENTRY> subEntriesA, subEntriesB;
+				LEAF_ENTRY copyLeaf;
+				for (int i = 0; i <= (int) copyUpEntry; i++) {
+					copyLeaf = leaf_entries[i];
+					subEntriesA.push_back(copyLeaf);
+				}
+				for (int i = (int) copyUpEntry + 1; i < (int) leaf_entries.size(); i++) {
+					copyLeaf = leaf_entries[i];
+					subEntriesB.push_back(copyLeaf);
+				}
+
+				short newPage = 0;
+				//check HeaderPage to see if any old empty page is available
+				void* header_page = malloc(PF_PAGE_SIZE);
+				fileHandle.ReadPage(0, header_page);
+				short total;
+				GetTotalEntries(header_page, total);
+				if (total > 0) {
+					readEmptyPageFromHeader(header_page, newPage, total);
+					writeEmptyPageToHeader(header_page, 0, total);
+					WriteTotalEntries(header_page, total - 1);
+					fileHandle.WritePage(0, header_page);
+				} else
+					newPage = (short) fileHandle.GetNumberOfPages();
+				// write back to old leaf page
+				writeLeafPage(newPage, subEntriesB, neighbor);
+
+				writeLeafPage(pageNumber, subEntriesA, newPage);
+				check = true; // has Return_Entry
+				memcpy(return_Entry.key, leaf_entries[copyUpEntry].key, KEY_SIZE);
+				return_Entry.page = newPage;
+				free(buffer);
+				free(minKey);
+				free(maxKey);
+				free(midKey);
+				free(nextKey);
+				free(header_page);
+				for (unsigned i = 0; i < leaf_entries.size(); i++) {
+					free(leaf_entries[i].key);
+				}
+				return RC_SUCCESS;
+			} else if (isEqual(minKey, maxKey, keyType) == RC_SUCCESS) {
+
+				if (isEqual(minKey, key, keyType) == RC_SUCCESS) {
+					// deal with overflow!
+
+					void *overflow_page = malloc(PF_PAGE_SIZE);
+					bool create_new = false;
+					if (neighbor > 0) {
+						fileHandle.ReadPage(neighbor, overflow_page);
+						NodeType page_type;
+						GetNodeType(overflow_page, page_type);
+						if (page_type != OverflowNode)
+							create_new = true;
+					} else
+						create_new = true;
+					if (create_new == true) {
+						CreateNewPage(overflow_page, OverflowNode);
+
+						short overflow_pagenumber = 0;
+						//check HeaderPage to see if any old empty page is available
+						void* header_page = malloc(PF_PAGE_SIZE);
+						fileHandle.ReadPage(0, header_page);
+						short total;
+						GetTotalEntries(header_page, total);
+						if (total > 0) {
+							readEmptyPageFromHeader(header_page, overflow_pagenumber, total);
+							writeEmptyPageToHeader(header_page, 0, total);
+							WriteTotalEntries(header_page, total - 1);
+							fileHandle.WritePage(0, header_page);
+						} else
+							overflow_pagenumber = (short) fileHandle.GetNumberOfPages();
+
+						WriteNeighbor(overflow_page, neighbor);
+						WriteNeighbor(buffer, overflow_pagenumber);
+						fileHandle.WritePage(pageNumber, buffer);
+						fileHandle.WritePage(overflow_pagenumber, overflow_page);
+
+						RC rc = insertEntry(overflow_pagenumber, key, rid, return_Entry, check);
+
+						free(buffer);
+						free(minKey);
+						free(maxKey);
+
+						free(header_page);
+						free(overflow_page);
+						if (rc == RC_FAIL) {
+							return rc;
 						}
-
+						return RC_SUCCESS;
 					}
+
+					else {
+						RC rc = insertEntry(neighbor, key, rid, return_Entry, check);
+						free(buffer);
+						free(minKey);
+						free(maxKey);
+
+						free(overflow_page);
+						if (rc == RC_FAIL) {
+							return rc;
+						}
+						return RC_SUCCESS;
+					}
+				}
+
+				else {
+					check = true;
+					void *new_page = malloc(PF_PAGE_SIZE);
+					CreateNewPage(new_page, LeafNode);
+					// push KEY up!
+					// tracing the link of overflowpages
+					void *temp_page = malloc(PF_PAGE_SIZE);
+					short next_page = 0;
+					next_page = neighbor;
+					bool end_of_link = false;
+					NodeType temp_type;
+					short previous_page = pageNumber;
+					while (next_page > 0 && end_of_link == false) {
+						fileHandle.ReadPage(next_page, temp_page);
+						GetNodeType(temp_page, temp_type);
+						if (temp_type == LeafNode) {
+							end_of_link = true;
+							break;
+						}
+						previous_page = next_page;
+						GetNeighbor(temp_page, next_page);
+					}
+
+					short newleaf_pagenumber = 0;
+					//check HeaderPage to see if any old empty page is available
+					void* header_page = malloc(PF_PAGE_SIZE);
+					fileHandle.ReadPage(0, header_page);
+					short total;
+					GetTotalEntries(header_page, total);
+					if (total > 0) {
+						readEmptyPageFromHeader(header_page, newleaf_pagenumber, total);
+						writeEmptyPageToHeader(header_page, 0, total);
+						WriteTotalEntries(header_page, total - 1);
+						fileHandle.WritePage(0, header_page);
+					} else
+						newleaf_pagenumber = (short) fileHandle.GetNumberOfPages();
+
+					WriteNeighbor(new_page, next_page);
+					fileHandle.ReadPage(previous_page, temp_page);
+					WriteNeighbor(temp_page, newleaf_pagenumber);
+					fileHandle.WritePage(previous_page, temp_page);
+					fileHandle.WritePage(newleaf_pagenumber, new_page);
+
+					RC rc = insertEntry(newleaf_pagenumber, key, rid, return_Entry, check);
+					memcpy(return_Entry.key, maxKey, KEY_SIZE);
+					return_Entry.page = newleaf_pagenumber;
+					free(buffer);
+					free(minKey);
+					free(maxKey);
+					free(temp_page);
+					free(new_page);
+					free(header_page);
+
+					if (rc == RC_FAIL
+					)
+						return rc;
+					return RC_SUCCESS;
 				}
 			}
 
-			if (direction == 1) {
-				position--;
-			}
-			short copyUpEntry = (short) position;
-
-			// create 2 new pages
-			vector<LEAF_ENTRY> subEntriesA, subEntriesB;
-			LEAF_ENTRY copyLeaf;
-			for (int i = 0; i <= (int) copyUpEntry; i++) {
-				copyLeaf = leaf_entries[i];
-				subEntriesA.push_back(copyLeaf);
-			}
-			for (int i = (int) copyUpEntry + 1; i < (int) leaf_entries.size(); i++) {
-				copyLeaf = leaf_entries[i];
-				subEntriesB.push_back(copyLeaf);
-			}
-
-			short newPage = 0;
-			//check HeaderPage to see if any old empty page is available
-			void* header_page = malloc(PF_PAGE_SIZE);
-			fileHandle.ReadPage(0, header_page);
-			short total;
-			GetTotalEntries(header_page, total);
-			if (total > 0) {
-				readEmptyPageFromHeader(header_page, newPage, total);
-				writeEmptyPageToHeader(header_page, 0, total);
-				WriteTotalEntries(header_page, total - 1);
-				fileHandle.WritePage(0, header_page);
-			} else
-				newPage = (short) fileHandle.GetNumberOfPages();
-			// write back to old leaf page
-			writeLeafPage(newPage, subEntriesB, neighbor);
-
-			writeLeafPage(pageNumber, subEntriesA, newPage);
-
-			memcpy(return_Entry.key, leaf_entries[copyUpEntry].key, KEY_SIZE);
-			return_Entry.page = newPage;
-			free(buffer);
-			free(header_page);
-			for (unsigned i = 0; i < leaf_entries.size(); i++) {
-				free(leaf_entries[i].key);
-			}
-			return RC_SUCCESS;
 		}
 
 	} //end of LEAF_NODE
 
-	else {
+	else if (node_type == NonLeafNode) {
 		vector<NONLEAF_ENTRY> nonleaf_entries;
 
 		GetNonLeafEntries(buffer, nonleaf_entries);
 
-//compare key with page entries
+		//compare key with page entries
 		unsigned index = 0;
 		while (index < nonleaf_entries.size()) {
 			if (isLess(nonleaf_entries[index].key, key, keyType) == RC_SUCCESS
@@ -1419,9 +1519,9 @@ RC IX_IndexHandle::insertEntry(short pageNumber, void * key, const RID rid, NONL
 			nextPage = nonleaf_entries[index - 1].page;
 		}
 		RC rc = insertEntry(nextPage, key, rid, return_Entry, check);
-		if (rc == RC_FAIL
-		)
+		if (rc == RC_FAIL) {
 			return rc;
+		}
 		if (check == true) { //have Return_entry
 
 			nonleaf_entries.push_back(return_Entry);
