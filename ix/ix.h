@@ -26,7 +26,7 @@ typedef struct {
 #define KEY_SIZE 4
 
 typedef enum {
-	RootNode = 0, BranchNode, LeafNode, RIDListNode, NonLeafNode
+	RootNode = 0, BranchNode, LeafNode, OverflowNode, NonLeafNode
 } NodeType;
 
 class IX_IndexHandle;

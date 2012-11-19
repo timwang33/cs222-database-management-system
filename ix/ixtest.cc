@@ -297,7 +297,7 @@ void testCase_4(const string tablename, const string attrname)
     
     while(ixScan->GetNextEntry(rid) == success) 
     {
-        cout << rid.pageNum << " " << rid.slotNum << endl;
+      //  cout << rid.pageNum << " " << rid.slotNum << endl;
 
     }
     
@@ -425,7 +425,7 @@ void testCase_5(const string tablename, const string attrname)
     // Test IndexScan iterator
     while(ixScan->GetNextEntry(rid) == success) 
     {
-        cout << rid.pageNum << " " << rid.slotNum << endl;
+       // cout << rid.pageNum << " " << rid.slotNum << endl;
         if (rid.pageNum < 501 || rid.slotNum < 501)
         {
             cout << "Wrong entries output...failure" << endl;
@@ -552,10 +552,9 @@ void testCase_6(const string tablename, const string attrname)
     // Test IndexScan Iterator    
     while(ixScan->GetNextEntry(rid) == success) 
     {
-    	if (rid.pageNum == 256)
-    		cout << "Wait" << endl;
-        if(rid.pageNum % 1 == 0)
-            cout << rid.pageNum << " " << rid.slotNum << endl;
+
+        //if(rid.pageNum % 100 == 0)
+        //    cout << rid.pageNum << " " << rid.slotNum << endl;
         if ((rid.pageNum > 2000 && rid.pageNum < 6000) || rid.pageNum >= 6500)
         {
         	cerr << "Error" << rid.pageNum << " " << rid.slotNum << endl;
@@ -669,7 +668,7 @@ void testCase_7(const string tablename, const string attrname)
     // Test DeleteEntry in IndexScan Iterator
     while(ixScan->GetNextEntry(rid) == success) 
     {
-        cout << rid.pageNum << " " << rid.slotNum << endl;
+       // cout << rid.pageNum << " " << rid.slotNum << endl;
 
         float key = (float)rid.pageNum;
         rc = ixHandle.DeleteEntry(&key, rid);
@@ -822,7 +821,7 @@ void testCase_8(const string tablename, const string attrname)
     // Test DeleteEntry in IndexScan Iterator
     while(ixScan->GetNextEntry(rid) == success) 
     {
-        cout << rid.pageNum << " " << rid.slotNum << endl;
+        //cout << rid.pageNum << " " << rid.slotNum << endl;
         
         float key = (float)rid.pageNum;
         rc = ixHandle.DeleteEntry(&key, rid);
@@ -873,7 +872,7 @@ void testCase_8(const string tablename, const string attrname)
 
     while(ixScan->GetNextEntry(rid) == success)
     {
-        cout << rid.pageNum << " " << rid.slotNum << endl;
+       // cout << rid.pageNum << " " << rid.slotNum << endl;
 
         if(rid.pageNum <= 450 || rid.slotNum <= 450)
         {
@@ -985,7 +984,15 @@ void testCase_extra_1(const string tablename, const string attrname)
             cout << "Failed Inserting Keys..." << endl;
         } 
     }
-    
+    unsigned key = 1234;
+    rid.pageNum = 5000;
+    rid.slotNum = 5000;
+    rc = ixHandle.DeleteEntry(&key, rid);
+            if(rc != success)
+            {
+                cout << "Failed deleting entry in Scan..." << endl;
+            }
+
     // Test Scan
     IX_IndexScan *ixScan = new IX_IndexScan();
     int compVal = 1234;
@@ -1004,7 +1011,7 @@ void testCase_extra_1(const string tablename, const string attrname)
     int count = 0;
     while(ixScan->GetNextEntry(rid) == success) 
     {
-        if(count % 1000 == 0)
+       if(count % 1000 == 0)
             cout << rid.pageNum << " " << rid.slotNum << endl;
         count++;
     }
@@ -1189,7 +1196,7 @@ int main()
 
     // Extra Credit Work
     // Duplicat Entries
-    //testCase_extra_1("tbl_employee", "Age");
+    testCase_extra_1("tbl_employee", "Age");
     // TypeVarChar
   //  testCase_extra_2("tbl_employee", "EmpName");
     
