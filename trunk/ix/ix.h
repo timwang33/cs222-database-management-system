@@ -69,6 +69,7 @@ public:
 	RC readNonLeafEntries(PageNum pageNumber, vector<NONLEAF_ENTRY> &middle_entries);
 	RC writeLeafPage(PageNum pageNumber, vector<LEAF_ENTRY> &leaf_Entries, short &neighBour);
 	RC writeNonLeafPage(PageNum pageNumber, vector<NONLEAF_ENTRY> &middle_Entries);
+	RC WriteNonLeafPage(void *buffer, vector<NONLEAF_ENTRY> &middle_Entries);
 	RC searchEntry(short pageNumber, const void *key, vector<RID> &result, bool &check);
 	RC deleteEntry(const void *key, const RID &rid, short pageNumber, bool &check);
 	RC getMostLeftLeaf(short page, short &leftMostPage);

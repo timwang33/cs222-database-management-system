@@ -476,6 +476,31 @@ void readEmptyPageFromHeader(void * buffer, short &pageNumber, short index) {
 	memcpy(&pageNumber, (char*) buffer + offset, unit);
 
 }
+
+void printLeafEntry(LEAF_ENTRY &leaf, AttrType key_type) {
+
+	cout << "key: ";
+	if (key_type == TypeInt)
+		cout << *(int*) leaf.key;
+	else if (key_type == TypeReal)
+		cout << *(float*) leaf.key;
+	cout << " page: " << leaf.page;
+	cout << " slot: " << leaf.slot;
+	cout << endl;
+
+}
+
+void printNonLeafEntry(NONLEAF_ENTRY &nonleaf, AttrType key_type) {
+
+	cout << "key: ";
+	if (key_type == TypeInt)
+		cout << *(int*) nonleaf.key;
+	else if (key_type == TypeReal)
+		cout << *(float*) nonleaf.key;
+	cout << " page: " << nonleaf.page;
+	cout << endl;
+
+}
 RC IX_IndexHandle::deleteEntry(const void *key, const RID &rid, short pageNumber, bool &check) {
 
 	void * buffer = malloc(PF_PAGE_SIZE);
@@ -492,6 +517,7 @@ RC IX_IndexHandle::deleteEntry(const void *key, const RID &rid, short pageNumber
 		vector<LEAF_ENTRY> leaf_entries;
 		GetLeafEntries(buffer, leaf_entries);
 		GetNeighbor(buffer, neighbor);
+		cout << "Reading leaf Page: " << pageNumber << endl;
 		LEAF_ENTRY entry;
 				for (unsigned i = 0; i < leaf_entries.size(); i++) {
 					entry = leaf_entries[i];
@@ -607,6 +633,7 @@ RC IX_IndexHandle::deleteEntry(const void *key, const RID &rid, short pageNumber
 
 		vector<NONLEAF_ENTRY> nonleaf_entries;
 		GetNonLeafEntries(buffer, nonleaf_entries);
+		cout << "Reading nonleaf Page: " << pageNumber << endl;
 		NONLEAF_ENTRY entry;
 				for (unsigned i = 0; i < nonleaf_entries.size(); i++) {
 					entry = nonleaf_entries[i];
@@ -653,7 +680,8 @@ RC IX_IndexHandle::deleteEntry(const void *key, const RID &rid, short pageNumber
 				check = false;
 			}
 
-			writeNonLeafPage(pageNumber, nonleaf_entries);
+			WriteNonLeafPage(buffer, nonleaf_entries);
+			fileHandle.WritePage(pageNumber,buffer);
 			free(buffer);
 			return RC_SUCCESS;
 
@@ -1091,30 +1119,7 @@ void IX_PrintError(RC rc) {
 
 }
 
-void printLeafEntry(LEAF_ENTRY &leaf, AttrType key_type) {
 
-	cout << "key: ";
-	if (key_type == TypeInt)
-		cout << *(int*) leaf.key;
-	else if (key_type == TypeReal)
-		cout << *(float*) leaf.key;
-	cout << " page: " << leaf.page;
-	cout << " slot: " << leaf.slot;
-	cout << endl;
-
-}
-
-void printNonLeafEntry(NONLEAF_ENTRY &nonleaf, AttrType key_type) {
-
-	cout << "key: ";
-	if (key_type == TypeInt)
-		cout << *(int*) nonleaf.key;
-	else if (key_type == TypeReal)
-		cout << *(float*) nonleaf.key;
-	cout << " page: " << nonleaf.page;
-	cout << endl;
-
-}
 //RC readLeafEntries(IX_IndexHandle &indexHandle, PageNum pageNumber, vector<LEAF_ENTRY> &leaf_entries)
 RC IX_IndexHandle::readLeafEntries(PageNum pageNumber, vector<LEAF_ENTRY> &leaf_entries) {
 
@@ -1230,6 +1235,35 @@ RC IX_IndexHandle::writeLeafPage(PageNum pageNumber, vector<LEAF_ENTRY> &leaf_En
 //write back to page
 	fileHandle.WritePage(pageNumber, buffer);
 	free(buffer);
+
+	return RC_SUCCESS;
+}
+
+RC IX_IndexHandle::WriteNonLeafPage(void *buffer, vector<NONLEAF_ENTRY> &nonleaf_entries) {
+
+
+	char ptr_size;
+	GetPtrSize(buffer, ptr_size);
+	short i;
+	short offset;
+	short totals = (short) nonleaf_entries.size();
+	for (i = 0; i < totals; i++) {
+
+		CalcKeyOffset(i + 1, NonLeafNode, ptr_size, offset);
+		memcpy((char*) buffer + offset, nonleaf_entries[i].key, KEY_SIZE);
+		CalcPtrOffset(i + 1, NonLeafNode, ptr_size, offset);
+		memcpy((char*) buffer + offset, &nonleaf_entries[i].page, unit);
+
+	}
+	short freeSpace = PF_PAGE_SIZE - (2 + 6 * nonleaf_entries.size());
+
+//2 byte N, 2 byte freeSpace, 2 byte neighbor, 1 byte type, 1 byte sizeOfPointer
+	freeSpace = freeSpace - 2 - 2 - 2 - 1 - 1;
+
+//update N and freeSpace
+	WriteTotalEntries(buffer, totals);
+	WriteFreeSpace(buffer, freeSpace);
+
 
 	return RC_SUCCESS;
 }
