@@ -48,7 +48,121 @@ void createTable(RM *rm, const string tablename)
     cout << "****Table Created: " << tablename << " ****" << endl << endl;
 }
 
+void testCase_0(const string tablename, const string attrname) {
+	  cout << endl << "****In Test Case 0****" << endl;
 
+	    RID rid;
+	    RC rc;
+	    // Test CreateIndex
+	    rc = ixManager->CreateIndex(tablename, attrname);
+	    if(rc == success)
+	    {
+	        cout << "Index Created!" << endl;
+	    }
+	    else
+	    {
+	        cout << "Failed Creating Index..." << endl;
+	    }
+
+	    // Test OpenIndex
+	    IX_IndexHandle ixHandle;
+	    rc = ixManager->OpenIndex(tablename, attrname, ixHandle);
+	    if(rc == success)
+	    {
+	        cout << "Index on " << attrname << " Opened!" << endl;
+	    }
+	    else
+	    {
+	        cout << "Failed Opening Index..." << endl;
+	    }
+
+	    // Test InsertEntry
+	    unsigned numOfTuples = 24;
+	    //unsigned maxValue = 500;
+		int key ;
+		RID test;
+	    for(unsigned i = 0; i <= numOfTuples; i++)
+	    {
+
+	    	 key= i + 1;
+	    	test.pageNum = 2*i + 1;
+	    	test.slotNum = 2*i + 2;
+
+
+	    	 rc = ixHandle.InsertEntry(&key, test);
+	        if(rc != success)
+	        {
+	            cout << "Failed Inserting Entry..." << endl;
+	        }
+	    }
+
+	    for(unsigned i = 0; i <= 2; i++)
+	    	    {
+
+	    	    	 key= i + 1;
+	    	    	test.pageNum = 2*i + 1;
+	    	    	test.slotNum = 2*i + 2;
+
+
+	    	    	 rc = ixHandle.DeleteEntry(&key, test);
+	    	        if(rc != success)
+	    	        {
+	    	            cout << "Failed Deleting Entry..." << endl;
+	    	        }
+	    	    }
+
+	    // Scan
+	    IX_IndexScan *ixScan = new IX_IndexScan();
+	    rc = ixScan->OpenScan(ixHandle, NO_OP, NULL);
+	    if(rc == success)
+	    {
+	        cout << "Scan Opened Successfully!" << endl;
+	    }
+	    else
+	    {
+	        cout << "Failed Opening Scan!" << endl;
+	    }
+
+	    while(ixScan->GetNextEntry(rid) == success)
+	    {
+	        cout << rid.pageNum << " " << rid.slotNum << endl;
+	    }
+
+	    // Close Scan
+	    rc = ixScan->CloseScan();
+	    if(rc == success)
+	    {
+	        cout << "Scan Closed Successfully!" << endl;
+	    }
+	    else
+	    {
+	        cout << "Failed Closing Scan..." << endl;
+	    }
+
+	    // Close Index
+	    rc = ixManager->CloseIndex(ixHandle);
+	    if(rc == success)
+	    {
+	        cout << "Index Closed Successfully!" << endl;
+	    }
+	    else
+	    {
+	        cout << "Failed Closing Index..." << endl;
+	    }
+
+	    // Destroy Index
+	    rc = ixManager->DestroyIndex(tablename, attrname);
+	    if(rc == success)
+	    {
+	        cout << "Index Destroyed Successfully!" << endl;
+	    }
+	    else
+	    {
+	        cout << "Failed Destroying Index..." << endl;
+	    }
+
+	    return;
+}
 void testCase_1(const string tablename, const string attrname)
 {    
     // Functions tested
@@ -1184,7 +1298,8 @@ int main()
     
     RM *rm = RM::Instance();
     createTable(rm, "tbl_employee");
-    
+    testCase_0("tbl_employee", "Age");
+    /*
     testCase_1("tbl_employee", "Age");
     testCase_2("tbl_employee", "Age");
     testCase_3("tbl_employee", "Age");
@@ -1193,10 +1308,10 @@ int main()
     testCase_6("tbl_employee", "Height");
     testCase_7("tbl_employee", "Height");
     testCase_8("tbl_employee", "Height");
-
+*/
     // Extra Credit Work
     // Duplicat Entries
-    testCase_extra_1("tbl_employee", "Age");
+  //  testCase_extra_1("tbl_employee", "Age");
     // TypeVarChar
   //  testCase_extra_2("tbl_employee", "EmpName");
     
