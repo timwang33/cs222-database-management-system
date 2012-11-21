@@ -25,6 +25,8 @@ typedef struct {
 
 #define KEY_SIZE 4
 
+#define DEBUG false
+
 typedef enum {
 	RootNode = 0, BranchNode, LeafNode, OverflowNode, NonLeafNode
 } NodeType;

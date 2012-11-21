@@ -122,12 +122,13 @@ void testCase_0(const string tablename, const string attrname) {
 	    {
 	        cout << "Failed Opening Scan!" << endl;
 	    }
-
+int count =0;
 	    while(ixScan->GetNextEntry(rid) == success)
 	    {
-	        cout << rid.pageNum << " " << rid.slotNum << endl;
+	    	count ++;
+	      //  cout << rid.pageNum << " " << rid.slotNum << endl;
 	    }
-
+cout << count <<endl;
 	    // Close Scan
 	    rc = ixScan->CloseScan();
 	    if(rc == success)
@@ -408,13 +409,14 @@ void testCase_4(const string tablename, const string attrname)
     {
         cout << "Failed Opening Scan!" << endl;
     }  
-    
+    int count =0;
     while(ixScan->GetNextEntry(rid) == success) 
     {
-      //  cout << rid.pageNum << " " << rid.slotNum << endl;
+    	count++;
+      //  cout <<rid.pageNum << " " << rid.slotNum << endl;
 
     }
-    
+    cout << count <<endl;
     // Close Scan
     rc = ixScan->CloseScan();
     if(rc == success)
@@ -537,15 +539,17 @@ void testCase_5(const string tablename, const string attrname)
     }  
     
     // Test IndexScan iterator
+
+    int count =0;
     while(ixScan->GetNextEntry(rid) == success) 
-    {
-       // cout << rid.pageNum << " " << rid.slotNum << endl;
+    {count++;
+        //cout << rid.pageNum << " " << rid.slotNum << endl;
         if (rid.pageNum < 501 || rid.slotNum < 501)
         {
             cout << "Wrong entries output...failure" << endl;
         }
     }
-    
+    cout << count<< endl;
     // Test Closing Scan
     rc= ixScan->CloseScan();
     if(rc == success)
@@ -663,10 +667,11 @@ void testCase_6(const string tablename, const string attrname)
         cout << "Failed Opening Scan..." << endl;
     }  
 
-    // Test IndexScan Iterator    
+    // Test IndexScan Iterator
+    int count =0;
     while(ixScan->GetNextEntry(rid) == success) 
     {
-
+count ++;
         //if(rid.pageNum % 100 == 0)
         //    cout << rid.pageNum << " " << rid.slotNum << endl;
         if ((rid.pageNum > 2000 && rid.pageNum < 6000) || rid.pageNum >= 6500)
@@ -675,7 +680,7 @@ void testCase_6(const string tablename, const string attrname)
             cerr << "Wrong entries output...failure" << endl;
         }
     }
-
+cout << count <<endl;
     // Test CloseScan
     rc = ixScan->CloseScan();
     if(rc == success)
@@ -780,8 +785,10 @@ void testCase_7(const string tablename, const string attrname)
     }
 
     // Test DeleteEntry in IndexScan Iterator
+    int count =0;
     while(ixScan->GetNextEntry(rid) == success) 
     {
+    	count ++;
        // cout << rid.pageNum << " " << rid.slotNum << endl;
 
         float key = (float)rid.pageNum;
@@ -791,7 +798,7 @@ void testCase_7(const string tablename, const string attrname)
             cout << "Failed deleting entry in Scan..." << endl;
         }
     }
-    cout << endl;
+    cout << count <<endl;
 
     // Test CloseScan
     rc = ixScan->CloseScan();
@@ -816,8 +823,10 @@ void testCase_7(const string tablename, const string attrname)
     }
 
     // Test IndexScan Iterator
+    count =0;
     while(ixScan->GetNextEntry(rid) == success) 
     {
+    	count++;
         cout << "Entry returned: " << rid.pageNum << " " << rid.slotNum << "--- failure" << endl;
 
         if(rid.pageNum > 100)
@@ -825,7 +834,7 @@ void testCase_7(const string tablename, const string attrname)
             cout << "Wrong entries output...failure" << endl;
         }
     }
-
+cout <<count<<endl;
     // Test CloseScan
     rc = ixScan->CloseScan();
     if(rc == success)
@@ -933,8 +942,10 @@ void testCase_8(const string tablename, const string attrname)
     }
 
     // Test DeleteEntry in IndexScan Iterator
+    int count =0;
     while(ixScan->GetNextEntry(rid) == success) 
     {
+    	count ++;
         //cout << rid.pageNum << " " << rid.slotNum << endl;
         
         float key = (float)rid.pageNum;
@@ -944,7 +955,7 @@ void testCase_8(const string tablename, const string attrname)
             cout << "Failed deleting entry in Scan..." << endl;
         }
     }
-    cout << endl;
+    cout << count << endl;
 
     // Test CloseScan
     rc = ixScan->CloseScan();
@@ -983,9 +994,10 @@ void testCase_8(const string tablename, const string attrname)
     {
         cout << "Failed Opening Scan..." << endl;
     }
-
+count =0;
     while(ixScan->GetNextEntry(rid) == success)
     {
+    	count++;
        // cout << rid.pageNum << " " << rid.slotNum << endl;
 
         if(rid.pageNum <= 450 || rid.slotNum <= 450)
@@ -993,7 +1005,7 @@ void testCase_8(const string tablename, const string attrname)
             cout << "Wrong entries output...failure" << endl;
         }
     }
-    cout << endl;
+    cout << count << endl;
 
     // Test CloseScan
     rc = ixScan->CloseScan();
@@ -1102,9 +1114,9 @@ void testCase_extra_1(const string tablename, const string attrname)
     rid.pageNum = 5000;
     rid.slotNum = 5000;
     rc = ixHandle.DeleteEntry(&key, rid);
-            if(rc != success)
+            if(rc == success)
             {
-                cout << "Failed deleting entry in Scan..." << endl;
+                cout << "Failed in deleting entry..." << endl;
             }
 
     // Test Scan
@@ -1298,8 +1310,9 @@ int main()
     
     RM *rm = RM::Instance();
     createTable(rm, "tbl_employee");
-    testCase_0("tbl_employee", "Age");
-    /*
+
+
+   testCase_0("tbl_employee", "Age");
     testCase_1("tbl_employee", "Age");
     testCase_2("tbl_employee", "Age");
     testCase_3("tbl_employee", "Age");
@@ -1308,12 +1321,12 @@ int main()
     testCase_6("tbl_employee", "Height");
     testCase_7("tbl_employee", "Height");
     testCase_8("tbl_employee", "Height");
-*/
+
     // Extra Credit Work
     // Duplicat Entries
-  //  testCase_extra_1("tbl_employee", "Age");
+    testCase_extra_1("tbl_employee", "Age");
     // TypeVarChar
-  //  testCase_extra_2("tbl_employee", "EmpName");
+    //testCase_extra_2("tbl_employee", "EmpName");
     
     return 0;
 }
