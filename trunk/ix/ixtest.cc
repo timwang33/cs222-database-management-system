@@ -526,7 +526,7 @@ void testCase_5(const string tablename, const string attrname)
     
     // Test Open Scan
     IX_IndexScan *ixScan = new IX_IndexScan();
-    int value = 501;
+    int value = 1509;
 
     rc= ixScan->OpenScan(ixHandle, GE_OP, &value);
     if(rc == success)
@@ -1303,7 +1303,7 @@ void testCase_extra_2(const string tablename, const string attrname)
     return;
 }
 
-
+/*
 int main()
 {
     cout << "****Starting Test Cases****" << endl;
@@ -1326,7 +1326,8 @@ int main()
     // Duplicat Entries
     testCase_extra_1("tbl_employee", "Age");
     // TypeVarChar
-    //testCase_extra_2("tbl_employee", "EmpName");
+    testCase_extra_2("tbl_employee", "EmpName");
     
     return 0;
 }
+*/

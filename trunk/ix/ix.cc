@@ -338,12 +338,14 @@ RC IX_IndexHandle::InsertEntry(void *key, const RID &rid) { // Insert new index 
 		return RC_FAIL;
 	}
 // this got to return RC_FAIL if there is already an entry for (key, rid)
-	if(DEBUG== true) {cout << endl << "INSERTING key: ";
-	if (keyType == TypeInt)
-		cout << *(int*) key;
-	else if (keyType == TypeReal)
-		cout << *(float*) key;
-	cout << endl;}
+	if (DEBUG == true) {
+		cout << endl << "INSERTING key: ";
+		if (keyType == TypeInt)
+			cout << *(int*) key;
+		else if (keyType == TypeReal)
+			cout << *(float*) key;
+		cout << endl;
+	}
 	RC rc = insertEntry(root, key, rid, return_entry, has_return);
 	if (rc == RC_FAIL) {
 
@@ -368,7 +370,7 @@ RC IX_IndexHandle::InsertEntry(void *key, const RID &rid) { // Insert new index 
 		WriteStartingPage(buffer, old_root);
 		fileHandle.WritePage(root, buffer);
 		free(buffer);
-free(return_entry.key);
+		free(return_entry.key);
 		return RC_SUCCESS;
 
 	}
@@ -573,7 +575,7 @@ RC IX_IndexHandle::deleteEntry(const void *key, const RID &rid, short pageNumber
 								fileHandle.ReadPage(previousPage, temp);
 								GetNeighbor(temp, temp_Neighbor);
 							}
-							if ( previousPage != pageNumber) {
+							if (previousPage != pageNumber) {
 								// update that newly found page's neighbor
 								fileHandle.ReadPage(previousPage, temp);
 								WriteNeighbor(temp, neighbor);
@@ -703,12 +705,14 @@ RC IX_IndexHandle::deleteEntry(const void *key, const RID &rid, short pageNumber
 
 RC IX_IndexHandle::DeleteEntry(void *key, const RID &rid) { // Delete index entry
 	bool change = false;
-	if (DEBUG== true) {cout << endl << "DELETING key: ";
-	if (keyType == TypeInt)
-		cout << *(int*) key;
-	else if (keyType == TypeReal)
-		cout << *(float*) key;
-	cout << endl;}
+	if (DEBUG == true) {
+		cout << endl << "DELETING key: ";
+		if (keyType == TypeInt)
+			cout << *(int*) key;
+		else if (keyType == TypeReal)
+			cout << *(float*) key;
+		cout << endl;
+	}
 	RC rc = deleteEntry(key, rid, root, change);
 	return rc;
 	// check changed????
@@ -817,7 +821,9 @@ RC IX_IndexScan::OpenScan(const IX_IndexHandle &indexHandle, CompOp compOp, void
 	this->keyType = indexHandle.keyType;
 	if (compOp == NE_OP)
 		return RC_FAIL;
-
+	this->hasStartingPoint = false;
+	this->currentPage = 0;
+	this->currentIndex = 0;
 	return RC_SUCCESS;
 }
 
@@ -978,15 +984,18 @@ RC IX_IndexScan::findKey(PageNum page) {
 			free(buffer);
 			return RC_SUCCESS;
 		} else {
-			short nextPage = 0;
-			short totals = 0;
-			do {
-				GetNeighbor(buffer, nextPage);
-				handle.ReadPage((PageNum) nextPage, buffer);
-				GetTotalEntries(buffer, totals);
-			} while (totals != 0 && nextPage != 0);
 			free(buffer);
-			return findKey((PageNum) nextPage);
+			return RC_FAIL;
+			/*
+			 short nextPage = 0;
+			 short totals = 0;
+			 do {
+			 GetNeighbor(buffer, nextPage);
+			 handle.ReadPage((PageNum) nextPage, buffer);
+			 GetTotalEntries(buffer, totals);
+			 } while (totals != 0 && nextPage != 0);
+			 free(buffer);
+			 return findKey((PageNum) nextPage);*/
 		}
 
 	}
@@ -1018,16 +1027,17 @@ RC IX_IndexScan::GetLeftMost(PageNum page) {
 			free(buffer);
 			return RC_SUCCESS;
 		} else {
-
-			short nextPage = 0;
-			GetNeighbor(buffer, nextPage);
-			if (nextPage == 0) {
-				free(buffer);
-				return RC_FAIL;
-			} else {
-				free(buffer);
-				return GetLeftMost((PageNum) nextPage);
-			}
+			free(buffer);
+			return RC_FAIL;/*
+			 short nextPage = 0;
+			 GetNeighbor(buffer, nextPage);
+			 if (nextPage == 0) {
+			 free(buffer);
+			 return RC_FAIL;
+			 } else {
+			 free(buffer);
+			 return GetLeftMost((PageNum) nextPage);
+			 }*/
 		}
 	}
 }
@@ -1058,7 +1068,7 @@ RC IX_IndexScan::GetNextEntry(RID &rid) {
 	char ptr_size = 0;
 	short offset = 0;
 	while (pass == false) {
-		handle.ReadPage(currentPage, buffer); // that page must be a LEAF
+		handle.ReadPage((PageNum) currentPage, buffer); // that page must be a LEAF
 		GetPtrSize(buffer, ptr_size);
 		short totals = 0;
 		GetTotalEntries(buffer, totals);
@@ -1119,17 +1129,22 @@ RC IX_IndexScan::CloseScan() { // Terminate index scan
 	if (cond_value != NULL) {
 		free(cond_value);
 	}
+	past_RID.pageNum = 0;
+	past_RID.slotNum = 0;
 	return RC_SUCCESS;
 }
 
 // print out the error message for a given return code
 void IX_PrintError(RC rc) {
 
-		if (rc == RC_SUCCESS)
-			cout << "success" <<endl;
-		else if (rc == RC_FAIL)
-			 cout << "fail" << endl;
-		else cout << "unknow error" << endl;
+	if (rc == RC_SUCCESS
+	)
+		cout << "success" << endl;
+	else if (rc == RC_FAIL
+	)
+		cout << "fail" << endl;
+	else
+		cout << "unknow error" << endl;
 
 }
 
