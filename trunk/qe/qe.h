@@ -11,14 +11,15 @@
 
 using namespace std;
 
-typedef enum{ MIN = 0, MAX, SUM, AVG, COUNT } AggregateOp;
+typedef enum{
+	MIN = 0, MAX, SUM, AVG, COUNT
+} AggregateOp;
 
 
 // The following functions use  the following 
 // format for the passed data.
 //    For int and real: use 4 bytes
-//    For varchar: use 4 bytes for the length followed by
-//                          the characters
+//    For varchar: use 4 bytes for the length followed by the characters
 
 struct Value {
     AttrType type;          // type of value               
@@ -72,7 +73,7 @@ class TableScan : public Iterator
 
             // Store tablename
             this->tablename = tablename;
-            if(alias) this->tablename = alias;
+            if(alias) this->tablename = string(alias);
         };
        
         // Start a new iterator given the new compOp and value
@@ -198,7 +199,7 @@ class Filter : public Iterator {
        };
         ~Filter();
         
-        RC getNextTuple(void *data);// {return QE_EOF;};
+        RC getNextTuple(void *data);
         // For attribute in vector<Attribute>, name it as rel.attr
         void getAttributes(vector<Attribute> &attrs) const;
         //void getAttributeData(const vector<Attribute> attrs, const string attr, const void *data, void *attrData);
@@ -238,7 +239,7 @@ class NLJoin : public Iterator {
 	TableScan *rightInput;
 	Condition condition;
 	vector<Attribute> leftAttrs, rightAttrs;
-	void * leftTuple;
+	void *leftTuple;
 	bool endOftable;
 	//bool hasReturn;
 	void RestartIterator()
@@ -284,7 +285,7 @@ class INLJoin : public Iterator {
 		value.data = malloc(200);
 		*(float *)value.data = 0.00;
 		this->rightInput->setIterator(NO_OP, value.data);
-		free(value.data);
+
 	}
 	//set iterator for index
     INLJoin(Iterator *leftIn,IndexScan *rightIn,const Condition &condition,const unsigned numPages)
@@ -296,6 +297,7 @@ class INLJoin : public Iterator {
         rightIn->getAttributes(rightAttrs);
         this->endOftable = true;
         this->leftTuple = malloc(200);
+
         RestartIterator();
 	}
         

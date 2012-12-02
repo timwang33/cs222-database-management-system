@@ -15,9 +15,9 @@ IX_Manager *ixManager = IX_Manager::Instance();
 const int success = 0;
 
 // Number of tuples in each relation
-const int tuplecount = 1000;
+const int tuplecount = 100;
 
-// Buffer size and character buffer size
+// Buffer size and character buffer si
 const unsigned bufsize = 200;
 
 
@@ -296,7 +296,7 @@ void testCase_1()
     Value value;
     value.type = TypeInt;
     value.data = malloc(bufsize);
-    *(int *)value.data = 25;
+    *(int *)value.data = 35;
     cond.rhsValue = value;
 
     // Create Filter
@@ -489,7 +489,7 @@ void testCase_5()
 
     Condition cond;
     cond.lhsAttr = "left.C";
-    cond.op = NO_OP;
+    cond.op = EQ_OP;
     cond.bRhsIsAttr = true;
     cond.rhsAttr = "right.C";
 
@@ -533,7 +533,7 @@ void testCase_5()
     free(data);
     return;
 }
-/*
+
 
 void testCase_6()
 {
@@ -878,7 +878,7 @@ void testCase_10()
     free(data);
     return;
 }
-
+/*
 
 void extraTestCase_1()
 {
@@ -1045,14 +1045,14 @@ int main()
     createIndexforRightC(rightRIDs);
 
     // Test Cases
-   // testCase_1();
+    //testCase_1();
    // testCase_2();
     //testCase_3();
-    testCase_4();
-    //testCase_5();
-   /* testCase_6();
+  // testCase_4();
+  //  testCase_5();
+   // testCase_6();
     testCase_7();
-    testCase_8();
+    /*testCase_8();
     testCase_9();
     testCase_10();
 

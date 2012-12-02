@@ -96,7 +96,7 @@ public:
 	string tableName;
 	vector<unsigned int> projected_position;
 	CompOp operation;
-	void * value;
+	void *value;
 	PF_FileHandle dataFileHandle;
 
 private:

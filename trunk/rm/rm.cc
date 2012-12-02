@@ -2250,7 +2250,8 @@ RC RM_ScanIterator::close() {
 	currentPage = 1;
 	currentSlot = 1;
 
-	if (value != NULL) free(value);
+	//if (value != NULL)
+		//free(value);
 	return RC_SUCCESS;
 }
 
