@@ -200,11 +200,11 @@ RC GetNonLeafEntries(void* buffer, vector<NONLEAF_ENTRY> &nonleaf_entries) {
 
 RC IX_Manager::CreateIndex(const string tableName, const string attributeName) {
 	string fileName = tableName + attributeName + ".data";
-	//struct stat FileInfo;
+	struct stat FileInfo;
 
-	//if (stat(fileName.c_str(), &FileInfo) == RC_SUCCESS) {
-	//	remove(fileName.c_str());
-	//}
+	if (stat(fileName.c_str(), &FileInfo) == RC_SUCCESS) {
+		remove(fileName.c_str());
+	}
 	RC rc = fileManager->CreateFile(fileName.c_str());
 	if (rc == RC_FAIL) {
 		return rc;
