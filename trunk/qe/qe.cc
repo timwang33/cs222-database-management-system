@@ -296,7 +296,8 @@ RC Project::getNextTuple(void *data) {
 //NLJoin
 NLJoin::~NLJoin() {
 	if (leftTuple != NULL
-		) free(leftTuple);
+	)
+		free(leftTuple);
 }
 
 void copyData(void *leftData, void *rightData, vector<Attribute> leftAttrs, vector<Attribute> rightAttrs, void *data) {
@@ -330,7 +331,7 @@ RC NLJoin::getNextTuple(void *data) {
 	void *leftAttrData = malloc(200);
 	void *rightAttrData = malloc(200);
 	int rc1 = RC_SUCCESS;
-	bool hasReturn = false;
+
 
 	//Get Left Attribute
 	Attribute LeftAttr;
@@ -452,7 +453,8 @@ RC NLJoin::getNextTuple(void *data) {
 
 INLJoin::~INLJoin() {
 	if (leftTuple != NULL
-		) free(leftTuple);
+	)
+		free(leftTuple);
 }
 
 void INLJoin::getAttributes(vector<Attribute> &attrs) const {
@@ -596,10 +598,23 @@ RC INLJoin::getNextTuple(void *data) {
 	free(rightAttrData);
 	return RC_SUCCESS;
 
-	fail:
-	free(rightTuple);
+	fail: free(rightTuple);
 	free(leftAttrData);
 	free(rightAttrData);
 	return RC_FAIL;
+}
+
+HashJoin::~HashJoin() {
+
+}
+
+
+
+RC HashJoin::getNextTuple(void *data) {
+	return QE_EOF;
+}
+
+void HashJoin::getAttributes(vector<Attribute> &attrs) const {
+
 }
 

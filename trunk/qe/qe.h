@@ -316,11 +316,15 @@ class HashJoin : public Iterator {
                  Iterator *rightIn,                               // Iterator of input S
                  const Condition &condition,                      // Join condition
                  const unsigned numPages                          // Number of pages can be used to do join (decided by the optimizer)
-        );
+
+        )
+        {
+        	;
+        }
         
         ~HashJoin();
 
-        RC getNextTuple(void *data) {return QE_EOF;};
+        RC getNextTuple(void *data);
         // For attribute in vector<Attribute>, name it as rel.attr
         void getAttributes(vector<Attribute> &attrs) const;
 };
