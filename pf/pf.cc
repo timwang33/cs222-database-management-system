@@ -1,5 +1,6 @@
 #include "pf.h"
-
+#include "errno.h"
+#include "string.h"
 #include <sys/stat.h>
 
 PF_Manager* PF_Manager::_pf_manager = 0;
@@ -45,7 +46,7 @@ RC PF_Manager::DestroyFile(const char* fileName) {
 
 RC PF_Manager::OpenFile(const char *fileName, PF_FileHandle &fileHandle) {
 
-
+errno =0;
 		FILE* fp = fopen(fileName, "rb+");
 
 		if (fp != NULL) {
@@ -64,6 +65,7 @@ RC PF_Manager::OpenFile(const char *fileName, PF_FileHandle &fileHandle) {
 			return RC_FAIL;
 		}
 
+		printf("Error %s \n", strerror(errno));
 		return RC_FAIL;
 
 
@@ -85,8 +87,10 @@ PF_FileHandle::PF_FileHandle() {
 }
 
 PF_FileHandle::~PF_FileHandle() {
-	nameOfFile = NULL;
-	if (handle!=NULL) handle =NULL;
+	if (nameOfFile != NULL)
+			free (nameOfFile);
+	if (handle!=NULL)
+		free (handle);
 }
 
 RC PF_FileHandle::ReadPage(PageNum pageNum, void *data) {
@@ -164,8 +168,9 @@ FILE* PF_FileHandle::GetHandle() {
 
 unsigned PF_FileHandle::GetNumberOfPages() {
 	unsigned size;
-	assert(HasHandle()== RC_SUCCESS);
-
+	if (handle == NULL) {
+	  cout << "wait" << endl;
+	}
 	fseek(handle, 0, SEEK_END);
 	size = ftell(handle) / PF_PAGE_SIZE;
 	return size;
