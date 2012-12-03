@@ -73,7 +73,8 @@ class TableScan : public Iterator
 
             // Store tablename
             this->tablename = tablename;
-            if(alias) this->tablename = string(alias);
+            if(alias)
+            	this->tablename = string(alias);
         };
        
         // Start a new iterator given the new compOp and value
@@ -244,18 +245,18 @@ class NLJoin : public Iterator {
 	//bool hasReturn;
 	void RestartIterator()
 	{
-		this->rightInput->setIterator();
+		rightInput->setIterator();
 	}
-    NLJoin(Iterator *leftIn,TableScan *rightIn, const Condition &condition, const unsigned numPages)
+    NLJoin(Iterator *leftIn,TableScan *rightIn, const Condition &cond, const unsigned numPages)
     {
-    	this->leftInput = leftIn;
-    	this->rightInput = rightIn;
-    	this->condition = condition;
+    	leftInput = leftIn;
+    	rightInput = rightIn;
+    	condition = cond;
     	leftIn->getAttributes(leftAttrs);
     	rightIn->getAttributes(rightAttrs);
-    	this->endOftable = true;
-    	this->leftTuple = malloc(200);
-    	//this->hasReturn = false;
+    	endOftable = true;
+    	leftTuple = malloc(200);
+
 
     }
         ~NLJoin();

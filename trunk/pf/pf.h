@@ -2,6 +2,7 @@
 #include <iostream>
 #include <cassert>
 #include <cstdio>
+#include <cstdlib>
 #include <cassert>
 
 #ifndef _pf_h_

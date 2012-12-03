@@ -15,7 +15,7 @@ IX_Manager *ixManager = IX_Manager::Instance();
 const int success = 0;
 
 // Number of tuples in each relation
-const int tuplecount = 1000;
+const int tuplecount = 1500;
 
 // Buffer size and character buffer si
 const unsigned bufsize = 200;
@@ -427,6 +427,41 @@ void testCase_4()
     TableScan *leftIn = new TableScan(*rm, "left");
     TableScan *rightIn = new TableScan(*rm, "right");
 
+    Condition cond1;
+        cond1.lhsAttr = "left.B";
+        cond1.op = NO_OP;
+        cond1.bRhsIsAttr = false;
+        Value value;
+        value.type = TypeInt;
+        value.data = malloc(bufsize);
+        *(int *)value.data = 35;
+        cond1.rhsValue = value;
+
+        // Create Filter
+        Filter filter(rightIn, cond1);
+int cnt =0;
+        void *data = malloc(bufsize);
+            while(filter.getNextTuple(data) != QE_EOF)
+            {
+            	cnt ++;/*
+                int offset = 0;
+                // Print left.A
+                cout << "left.A " << *(int *)((char *)data + offset) << endl;
+                offset += sizeof(int);
+
+                // Print left.B
+                cout << "left.B " << *(int *)((char *)data + offset) << endl;
+                offset += sizeof(int);
+
+                // Print left.C
+                cout << "left.C " << *(float *)((char *)data + offset) << endl;
+                offset += sizeof(float);
+*/
+                memset(data, 0, bufsize);
+            }
+cout << "ALL RIGHT = " << cnt << endl;
+            free(value.data);
+            free(data);
     Condition cond;
     cond.lhsAttr = "left.B";
     cond.op= EQ_OP;
@@ -437,9 +472,14 @@ void testCase_4()
     NLJoin nljoin(leftIn, rightIn, cond, 10);
 
     // Go over the data through iterator
-    void *data = malloc(bufsize);
+    data = malloc(bufsize);
+    int count =0;
     while(nljoin.getNextTuple(data) != QE_EOF)
     {
+    	count++;
+    	cerr <<count << endl;
+    	if (count == 494)
+    		cout << count << endl;/*
         int offset = 0;
 
         // Print left.A
@@ -465,10 +505,10 @@ void testCase_4()
         // Print right.D
         cout << "right.D " << *(int *)((char *)data + offset) << endl;
         offset += sizeof(int);
-
+*/
         memset(data, 0, bufsize);
     }
-
+cout << "total " << count << endl;
     free(data);
     return;
 }
@@ -1048,10 +1088,10 @@ int main()
     //testCase_1();
    // testCase_2();
     //testCase_3();
-  // testCase_4();
+   testCase_4();
   //  testCase_5();
    // testCase_6();
-    testCase_7();
+   // testCase_7();
     /*testCase_8();
     testCase_9();
     testCase_10();

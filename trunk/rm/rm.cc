@@ -733,14 +733,14 @@ RC RM::openTable(const string tableName, PF_FileHandle &tableHdl) {
 				tableHdl = allTables[i].fileHandle;
 				return RC_SUCCESS;
 			} else {
-				fileManager->OpenFile(fileName.c_str(), tableHdl);
-				return RC_SUCCESS;
+				RC rc = fileManager->OpenFile(fileName.c_str(), tableHdl);
+				return rc;
 			}
 		}
 	}
 
-	fileManager->OpenFile(fileName.c_str(), tableHdl);
-
+	RC rc1 =fileManager->OpenFile(fileName.c_str(), tableHdl);
+ if (rc1 == RC_FAIL) return rc1;
 	tableHandle newTable;
 	newTable.name = tableName;
 	newTable.fileHandle = tableHdl;
@@ -1695,7 +1695,8 @@ RC RM::scan(const string tableName, const string conditionAttribute, const CompO
 		const vector<string> &attributeNames, // a list of projected attributes
 		RM_ScanIterator &rm_ScanIterator) {
 
-	openTable(tableName, rm_ScanIterator.dataFileHandle);
+	RC rc = openTable(tableName, rm_ScanIterator.dataFileHandle);
+
 	vector<Attribute> attrs;
 	getAttributes(tableName, attrs);
 	memcpy((char*) rm_ScanIterator.tableName.c_str(), (char*) tableName.c_str(), tableName.length());
@@ -1718,6 +1719,7 @@ RC RM::scan(const string tableName, const string conditionAttribute, const CompO
 
 		}
 	}
+
 	if (value != NULL) {
 		rm_ScanIterator.value = malloc(size);
 		memcpy(rm_ScanIterator.value, (char*) value, size);
@@ -1874,6 +1876,7 @@ RM_ScanIterator::RM_ScanIterator() {
 	latest_schema = 1;
 	buffer = malloc(PF_PAGE_SIZE);
 
+
 }
 
 RM_ScanIterator::~RM_ScanIterator() {
@@ -1888,14 +1891,14 @@ bool isIn(unsigned int num, vector<unsigned int> &vector_int) {
 	return false;
 }
 
-RC RM_ScanIterator::grabValidTuple(void * source, short slotNumber, void * data_returned, bool inSearch) {
+RC RM_ScanIterator::grabValidTuple(void *source, short slotNumber, void *data_returned, bool inSearch) {
 
 	short offset;
 	short length;
 	RC rc;
 	getSpecificOffset(source, slotNumber, offset);
 	if (offset == -1) {
-		memset(data_returned, 0, 100);
+		data_returned = NULL;
 		return RC_FAIL;
 	} else {
 		getSpecificLength(source, slotNumber, length);
@@ -1916,7 +1919,7 @@ RC RM_ScanIterator::grabValidTuple(void * source, short slotNumber, void * data_
 				memcpy(data_returned, (char*) source + offset, (length * -1));
 				return RC_SUCCESS;
 			} else {
-				memset(data_returned, 0, 100);
+				data_returned = NULL;
 				return RC_FAIL;
 			}
 		}
@@ -1928,11 +1931,13 @@ RC RM_ScanIterator::grabValidTuple(void * source, short slotNumber, void * data_
 RC RM_ScanIterator::getNextTuple(RID &rid, void *data) {
 
 	RM* recordManager = RM::Instance();
+	if (dataFileHandle.HasHandle() == RC_FAIL) return RC_FAIL;
 	if (currentPage == (short) dataFileHandle.GetNumberOfPages())
 		return EOF;
 
 	bool ok = false;
-
+	void *tuple = malloc(500);
+	void *result = malloc(500);
 	short total;
 
 	bool pass = false;
@@ -1958,7 +1963,7 @@ RC RM_ScanIterator::getNextTuple(RID &rid, void *data) {
 		} while (!ok);
 
 		RC rc;
-		void * tuple = malloc(PF_PAGE_SIZE);
+
 
 		rc = grabValidTuple(buffer, currentSlot, tuple, false);
 		if (rc != RC_SUCCESS) {
@@ -2000,7 +2005,6 @@ RC RM_ScanIterator::getNextTuple(RID &rid, void *data) {
 						case TypeInt:
 						case TypeReal:
 							value_size = 4;
-
 							break;
 						case TypeVarChar:
 							memcpy(&value_size, (char*) tuple + data_offset, 4);
@@ -2031,7 +2035,7 @@ RC RM_ScanIterator::getNextTuple(RID &rid, void *data) {
 				}
 			}
 			if (rc == RC_SUCCESS) {
-				void * result = malloc(PF_PAGE_SIZE);
+
 
 				int result_offset = 0;
 				data_offset = 2;
@@ -2068,6 +2072,7 @@ RC RM_ScanIterator::getNextTuple(RID &rid, void *data) {
 				rid.slotNum = currentSlot;
 				currentSlot++;
 				memcpy(data, result, result_offset);
+
 				pass = true;
 			} else
 				currentSlot++;
@@ -2075,6 +2080,8 @@ RC RM_ScanIterator::getNextTuple(RID &rid, void *data) {
 		}
 
 	} while (!pass);
+	free(result);
+	free(tuple);
 	return RC_SUCCESS;
 }
 
@@ -2250,8 +2257,15 @@ RC RM_ScanIterator::close() {
 	currentPage = 1;
 	currentSlot = 1;
 
-	//if (value != NULL)
-		//free(value);
+	FILE* fp = dataFileHandle.GetHandle();
+	if (fp == NULL) return RC_FAIL;
+	RC rc = fclose(fp);
+	if (rc != RC_SUCCESS)
+		return RC_FAIL;
+	dataFileHandle.ClearHandle();
+
+	if (value != NULL)
+		free(value);
 	return RC_SUCCESS;
 }
 
