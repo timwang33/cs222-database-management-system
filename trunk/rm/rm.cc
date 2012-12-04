@@ -1695,7 +1695,7 @@ RC RM::scan(const string tableName, const string conditionAttribute, const CompO
 		const vector<string> &attributeNames, // a list of projected attributes
 		RM_ScanIterator &rm_ScanIterator) {
 
-	RC rc = openTable(tableName, rm_ScanIterator.dataFileHandle);
+	openTable(tableName, rm_ScanIterator.dataFileHandle);
 
 	vector<Attribute> attrs;
 	getAttributes(tableName, attrs);
@@ -1946,8 +1946,12 @@ RC RM_ScanIterator::getNextTuple(RID &rid, void *data) {
 		ok = false;
 		do {
 			if (switch_page) {
-				if (currentPage == (short) dataFileHandle.GetNumberOfPages())
+				if (currentPage == (short) dataFileHandle.GetNumberOfPages()) {
+					free(tuple);
+					free(result);
 					return EOF;
+				}
+
 
 				dataFileHandle.ReadPage(currentPage, buffer);
 				switch_page = false;

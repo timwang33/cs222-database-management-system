@@ -1,5 +1,8 @@
 # include "qe.h"
 #include<algorithm>
+#include <sstream>
+#include <math.h>
+#include <stdlib.h>
 
 //compare 2 memory
 int compare(void *data1, void *data2, AttrType type) {
@@ -332,7 +335,6 @@ RC NLJoin::getNextTuple(void *data) {
 	void *rightAttrData = malloc(200);
 	int rc1 = RC_SUCCESS;
 
-
 	//Get Left Attribute
 	Attribute LeftAttr;
 	string leftAttrName = condition.lhsAttr;
@@ -598,7 +600,9 @@ RC INLJoin::getNextTuple(void *data) {
 	free(rightAttrData);
 	return RC_SUCCESS;
 
-	fail: free(rightTuple);
+	fail:
+
+	free(rightTuple);
 	free(leftAttrData);
 	free(rightAttrData);
 	return RC_FAIL;
@@ -607,11 +611,150 @@ RC INLJoin::getNextTuple(void *data) {
 HashJoin::~HashJoin() {
 
 }
+unsigned h1(void* value, unsigned modNumber, AttrType type) {
+
+	int intVal;
+	float floatVal;
+
+	switch (type) {
+	case TypeInt:
+		memcpy(&intVal, value, 4);
+
+		break;
+
+	case TypeReal:
+		memcpy(&floatVal, value, 4);
+		intVal = (floatVal >= 0) ? (int) (floatVal + 0.5) : (int) (floatVal - 0.5);
+
+		break;
+	case TypeVarChar:
+		memcpy(&intVal, value, 4);
+		break;
+	default:
+		cerr << "Type is not correct!";
+		break;
+	}
+
+	intVal = abs(intVal);
+
+	return (unsigned) intVal % modNumber;
+}
+
+void CreateNewPage(void * buffer) {
+
+	memset(buffer, 0, PF_PAGE_SIZE);
+	short free_space = PF_PAGE_SIZE - 4;
+	memcpy((char*) buffer + END_OF_PAGE - 2 * unit, &free_space,unit);
+}
+
+void WriteTo(void * dest, void * source, short source_len) {
+
+	short lastOffset = 0;
+	short lastLength = 0;
+
+	short total = 0;
+
+	memcpy(&total, (char*) dest + END_OF_PAGE - unit,unit);
+
+	short offset = (total << 2) + unit;
+	memcpy(&lastOffset, (char*) dest + END_OF_PAGE - offset, unit);
+	offset += unit;
+	memcpy(&lastLength, (char*) dest + END_OF_PAGE - offset, unit);
+
+	offset = lastOffset + lastLength;
+
+	memcpy((char*) dest + offset, (char*) source, source_len);
+
+//update directory:
+
+	total++;
+	short temp_offset = (total << 2) + unit;
+	memcpy((char *) dest + END_OF_PAGE - temp_offset, &offset, unit);
+	temp_offset += unit;
+	memcpy((char *) dest + END_OF_PAGE - temp_offset, &source_len, unit);
+
+	memcpy((char*) dest + END_OF_PAGE - unit, &total,unit);
+	short free_space;
+	memcpy(&free_space, (char*) dest + END_OF_PAGE - 2 * unit,unit);
+	free_space = free_space - source_len - 4;
+	memcpy((char*) dest + END_OF_PAGE - 2 * unit, &free_space,unit);
+
+}
+RC HashJoin::partitionTable(Iterator *input, vector<Partition> &allPartitions, string attr) {
+
+	unsigned slot;
+	PF_Manager * manager = PF_Manager::Instance();
+
+	string name = input->getTableName();
+
+	for (unsigned i = 0; i < numBuckets; i++) {
+		Partition part;
+		string String = static_cast<ostringstream*>(&(ostringstream() << i))->str();
+		string fileName = name + "Part" + String + ".datatemp";
+		manager->CreateFile(fileName.c_str());
+		manager->OpenFile(fileName.c_str(), part.fHandle);
+		part.totalPages = 0;
+		part.buffer = malloc(PF_PAGE_SIZE);
+		CreateNewPage(part.buffer);
+		allPartitions.push_back(part);
+	}
+
+	void *data = malloc(200);
+	vector<Attribute> attrs;
+	input->getAttributes(attrs);
+	void *attrData = malloc(200);
+	Attribute theAttribute;
+	theAttribute = getAttributeFromName(attrs, attr);
+
+	while (true) {
+		RC rc = input->getNextTuple(data);
+		if (rc != RC_SUCCESS) {
+			free(data);
+			// flush all bucket to disk
+			short total;
+			Partition writer;
+			for (unsigned i = 0; i < this->numBuckets; i++) {
+				writer = allPartitions[i];
+				memcpy(&total, (char*) writer.buffer + END_OF_PAGE - unit,unit);
+				if (total > 0) {
+					writer.fHandle.WritePage(writer.totalPages,writer.buffer);
+					writer.totalPages++;
+					CreateNewPage(writer.buffer);
+				}
+			}
+			return RC_SUCCESS;
+		}
+
+		//get data
+		getAttributeData(attrs, attr, data, attrData);
+
+		slot = h1(attrData, this->numBuckets, theAttribute.type);
+		short size;
+		getSizeOfTuple(data, attrs, size);
+		Partition writer = allPartitions[slot];
+		short freeSpace;
+		memcpy(&freeSpace, (char*) writer.buffer + END_OF_PAGE - 2 * unit,unit);
+		if (freeSpace < size) {
+			writer.fHandle.WritePage(writer.totalPages, writer.buffer);
+			writer.totalPages++;
+			CreateNewPage(writer.buffer);
+
+		}
+		WriteTo(writer.buffer, data, size);
 
 
+	}
+}
 
 RC HashJoin::getNextTuple(void *data) {
-	return QE_EOF;
+	if (this->currentPartition == this->numBuckets) return QE_EOF;
+
+	if (!this->hasHashTable) {
+		//buildHashTable(currentPartition,this->rightAttrs,this_>cond.rhsAttr,this->m);
+
+
+	}
+	return RC_SUCCESS;
 }
 
 void HashJoin::getAttributes(vector<Attribute> &attrs) const {
