@@ -477,9 +477,9 @@ cout << "ALL RIGHT = " << cnt << endl;
     while(nljoin.getNextTuple(data) != QE_EOF)
     {
     	count++;
-    	cerr <<count << endl;
-    	if (count == 494)
-    		cout << count << endl;/*
+    	//cerr <<count << endl;
+    	//if (count == 494)
+    		//cout << count << endl;
         int offset = 0;
 
         // Print left.A
@@ -505,7 +505,7 @@ cout << "ALL RIGHT = " << cnt << endl;
         // Print right.D
         cout << "right.D " << *(int *)((char *)data + offset) << endl;
         offset += sizeof(int);
-*/
+
         memset(data, 0, bufsize);
     }
 cout << "total " << count << endl;
@@ -1085,17 +1085,17 @@ int main()
     createIndexforRightC(rightRIDs);
 
     // Test Cases
-    //testCase_1();
-   // testCase_2();
-    //testCase_3();
-  // testCase_4();
-  //  testCase_5();
+    testCase_1();
+    testCase_2();
+   testCase_3();
+   testCase_4();
+    testCase_5();
     testCase_6();
-   // testCase_7();
-    /*testCase_8();
+    testCase_7();
+    testCase_8();
     testCase_9();
     testCase_10();
-
+/*
     // Extra Credit
     extraTestCase_1();
     extraTestCase_2();

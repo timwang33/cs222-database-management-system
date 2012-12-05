@@ -74,14 +74,13 @@ public:
 			attrNames.push_back(attrs[i].name);
 		}
 		// Store tablename
-				this->tablename = tablename;
-				if (alias)
-					this->tablename = string(alias);
+		this->tablename = tablename;
+		if (alias)
+			this->tablename = string(alias);
 
 		// Call rm scan to get iterator
 		iter = new RM_ScanIterator();
 		rm.scan(tablename, "", NO_OP, NULL, attrNames, *iter);
-
 
 	}
 	;
@@ -276,7 +275,7 @@ public:
 
 	}
 	string getTableName() {
-		return NULL;
+		return leftInput->getTableName() + rightInput->getTableName();
 	}
 	;
 	~NLJoin();
@@ -318,7 +317,7 @@ public:
 		RestartIterator();
 	}
 	string getTableName() {
-		return NULL;
+		return leftInput->getTableName() + rightInput->getTableName();
 	}
 	;
 	~INLJoin();
@@ -340,9 +339,9 @@ public:
 	unsigned currentPartition;
 	bool hasHashTable;
 	multimap<unsigned, Record> m;
-short leftCurrentPage;
-short leftCurrentSlot;
-short rightIndex;
+	short leftCurrentPage;
+	short leftCurrentSlot;
+	short rightIndex;
 
 	HashJoin(Iterator *leftIn, // Iterator of input R
 			Iterator *rightIn, // Iterator of input S
@@ -359,9 +358,10 @@ short rightIndex;
 		hasHashTable = false;
 		currentPartition = 0;
 		leftCurrentPage = 0;
-		leftCurrentSlot =0;
-		rightIndex =0;
+		leftCurrentSlot = 0;
+		rightIndex = 0;
 		partitionTable(leftInput, leftPartitions, cond.lhsAttr);
+
 		partitionTable(rightInput, rightPartitions, cond.rhsAttr);
 	}
 	string getTableName() {
@@ -379,7 +379,7 @@ short rightIndex;
 class Aggregate: public Iterator {
 	// Aggregation operator
 public:
-Attribute aggAttr, gAttr;
+	Attribute aggAttr, gAttr;
 	AggregateOp op;
 	Iterator *input;
 	vector<Attribute> attrs;
@@ -393,9 +393,8 @@ Attribute aggAttr, gAttr;
 	Aggregate(Iterator *input, // Iterator of input R
 			Attribute aggAttr, // The attribute over which we are computing an aggregate
 			AggregateOp op // Aggregate operation
-			)
-			{
-			this->input = input;
+			) {
+		this->input = input;
 		this->aggAttr = aggAttr;
 		this->op = op;
 		input->getAttributes(attrs);
@@ -403,7 +402,8 @@ Attribute aggAttr, gAttr;
 		sum = min;
 		count = 1;
 		this->numberOfParameter = 3;
-			};
+	}
+	;
 
 	// Extra Credit
 	Aggregate(Iterator *input, // Iterator of input R
@@ -411,17 +411,18 @@ Attribute aggAttr, gAttr;
 			Attribute gAttr, // The attribute over which we are grouping the tuples
 			AggregateOp op // Aggregate operation
 			) {
-			 this->input = input;
-       this->aggAttr = aggAttr;
-       this->op = op;
-       this->gAttr = gAttr;
-       input->getAttributes(attrs);
-       count = 0;
-       sum = 0.0;
-       max = 0.0;
-       min = 0.0;
-       this->numberOfParameter = 4;
-	   };
+		this->input = input;
+		this->aggAttr = aggAttr;
+		this->op = op;
+		this->gAttr = gAttr;
+		input->getAttributes(attrs);
+		count = 0;
+		sum = 0.0;
+		max = 0.0;
+		min = 0.0;
+		this->numberOfParameter = 4;
+	}
+	;
 
 	string getTableName() {
 		return NULL;
@@ -429,10 +430,8 @@ Attribute aggAttr, gAttr;
 	;
 	~Aggregate();
 
-	RC getNextTuple(void *data) {
-		return QE_EOF;
-	}
-	;
+	RC getNextTuple(void *data);
+
 	// Please name the output attribute as aggregateOp(aggAttr)
 	// E.g. Relation=rel, attribute=attr, aggregateOp=MAX
 	// output attrname = "MAX(rel.attr)"
