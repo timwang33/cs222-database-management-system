@@ -1502,6 +1502,7 @@ RC RM::updateTuple(const string tableName, const void *data, const RID &rid, boo
 	}
 	free(buffer);
 	free(temp_data);
+
 	return RC_FAIL;
 }
 
@@ -2084,6 +2085,7 @@ RC RM_ScanIterator::getNextTuple(RID &rid, void *data) {
 		}
 
 	} while (!pass);
+
 	free(result);
 	free(tuple);
 	return RC_SUCCESS;

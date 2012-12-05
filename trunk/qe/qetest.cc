@@ -15,7 +15,7 @@ IX_Manager *ixManager = IX_Manager::Instance();
 const int success = 0;
 
 // Number of tuples in each relation
-const int tuplecount = 1500;
+const int tuplecount = 50;
 
 // Buffer size and character buffer si
 const unsigned bufsize = 200;
@@ -1088,9 +1088,9 @@ int main()
     //testCase_1();
    // testCase_2();
     //testCase_3();
-   testCase_4();
+  // testCase_4();
   //  testCase_5();
-   // testCase_6();
+    testCase_6();
    // testCase_7();
     /*testCase_8();
     testCase_9();
