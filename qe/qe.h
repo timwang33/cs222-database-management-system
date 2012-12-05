@@ -379,17 +379,49 @@ short rightIndex;
 class Aggregate: public Iterator {
 	// Aggregation operator
 public:
+Attribute aggAttr, gAttr;
+	AggregateOp op;
+	Iterator *input;
+	vector<Attribute> attrs;
+	int count;
+	float sum, max, min;
+	int numberOfParameter;
+
+	void getAggData(const vector<Attribute> attrs, const string attr, const void *data, void *attrData);
+	RC Init(Iterator *input, vector<Attribute> attrs, Attribute aggAtt, float *min, float *max);
+
 	Aggregate(Iterator *input, // Iterator of input R
 			Attribute aggAttr, // The attribute over which we are computing an aggregate
 			AggregateOp op // Aggregate operation
-			);
+			)
+			{
+			this->input = input;
+		this->aggAttr = aggAttr;
+		this->op = op;
+		input->getAttributes(attrs);
+		Init(this->input, this->attrs, this->aggAttr, &(this->min), &(this->max));
+		sum = min;
+		count = 1;
+		this->numberOfParameter = 3;
+			};
 
 	// Extra Credit
 	Aggregate(Iterator *input, // Iterator of input R
 			Attribute aggAttr, // The attribute over which we are computing an aggregate
 			Attribute gAttr, // The attribute over which we are grouping the tuples
 			AggregateOp op // Aggregate operation
-			);
+			) {
+			 this->input = input;
+       this->aggAttr = aggAttr;
+       this->op = op;
+       this->gAttr = gAttr;
+       input->getAttributes(attrs);
+       count = 0;
+       sum = 0.0;
+       max = 0.0;
+       min = 0.0;
+       this->numberOfParameter = 4;
+	   };
 
 	string getTableName() {
 		return NULL;
