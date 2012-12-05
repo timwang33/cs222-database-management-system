@@ -656,13 +656,15 @@ void WriteTo(void * dest, void * source, short source_len) {
 
 	memcpy(&total, (char*) dest + END_OF_PAGE - unit,unit);
 
-	short offset = (total << 2) + unit;
+	short offset =0;
+	if (total >0){
+		offset = (total << 2) + unit;
 	memcpy(&lastOffset, (char*) dest + END_OF_PAGE - offset, unit);
 	offset += unit;
 	memcpy(&lastLength, (char*) dest + END_OF_PAGE - offset, unit);
 
 	offset = lastOffset + lastLength;
-
+	}
 	memcpy((char*) dest + offset, (char*) source, source_len);
 
 //update directory:
@@ -683,7 +685,7 @@ void WriteTo(void * dest, void * source, short source_len) {
 RC HashJoin::partitionTable(Iterator *input, vector<Partition> &allPartitions, string attr) {
 
 	unsigned slot;
-	PF_Manager * manager = PF_Manager::Instance();
+	PF_Manager *manager = PF_Manager::Instance();
 
 	string name = input->getTableName();
 
@@ -691,6 +693,7 @@ RC HashJoin::partitionTable(Iterator *input, vector<Partition> &allPartitions, s
 		Partition part;
 		string String = static_cast<ostringstream*>(&(ostringstream() << i))->str();
 		string fileName = name + "Part" + String + ".datatemp";
+		remove(fileName.c_str());
 		manager->CreateFile(fileName.c_str());
 		manager->OpenFile(fileName.c_str(), part.fHandle);
 		part.totalPages = 0;
@@ -705,11 +708,18 @@ RC HashJoin::partitionTable(Iterator *input, vector<Partition> &allPartitions, s
 	void *attrData = malloc(200);
 	Attribute theAttribute;
 	theAttribute = getAttributeFromName(attrs, attr);
-
+	int count = 0;
+	RC rc;
 	while (true) {
-		RC rc = input->getNextTuple(data);
+		rc = input->getNextTuple(data);
+		cerr << count << endl;
+		count++;
+		//if (count == 1500)
+		//	cerr << "wait" << endl;
 		if (rc != RC_SUCCESS) {
+			cerr << "exiting" << endl;
 			free(data);
+			free(attrData);
 			// flush all bucket to disk
 			short total;
 			Partition writer;
@@ -718,10 +728,13 @@ RC HashJoin::partitionTable(Iterator *input, vector<Partition> &allPartitions, s
 				memcpy(&total, (char*) writer.buffer + END_OF_PAGE - unit,unit);
 				if (total > 0) {
 					writer.fHandle.WritePage(writer.totalPages, writer.buffer);
+
 					writer.totalPages++;
+					cerr<< i << " " <<  "page " << writer.totalPages <<" " <<   total << "records" << endl;
 					CreateNewPage(writer.buffer);
 				}
 			}
+			cerr << "returning" << endl;
 			return RC_SUCCESS;
 		}
 
@@ -733,9 +746,12 @@ RC HashJoin::partitionTable(Iterator *input, vector<Partition> &allPartitions, s
 		getSizeOfTuple(data, attrs, size);
 		Partition writer = allPartitions[slot];
 		short freeSpace;
+		short total;
 		memcpy(&freeSpace, (char*) writer.buffer + END_OF_PAGE - 2 * unit,unit);
 		if (freeSpace < size) {
 			writer.fHandle.WritePage(writer.totalPages, writer.buffer);
+			memcpy(&total, (char*) writer.buffer + END_OF_PAGE - unit,unit);
+			cerr<<  "page " << slot << " : " << total << "records" << endl;
 			writer.totalPages++;
 			CreateNewPage(writer.buffer);
 
@@ -747,9 +763,11 @@ RC HashJoin::partitionTable(Iterator *input, vector<Partition> &allPartitions, s
 }
 
 RC HashJoin::getNextTuple(void *data) {
-
-	if (currentPartition == numBuckets)
+	cerr << "enter getNextTuple" << endl;
+	if (currentPartition == numBuckets) {
+		cerr << "returning EOF " << endl;
 		return QE_EOF;
+	}
 
 	//PF_Manager *manager = PF_Manager::Instance();
 	short offset, start, length = 0;
@@ -759,6 +777,7 @@ RC HashJoin::getNextTuple(void *data) {
 	left.fHandle.ReadPage(leftCurrentPage, left.buffer);
 	short leftTotals;
 	memcpy(&leftTotals, (char*) left.buffer + END_OF_PAGE - unit,unit);
+	cerr << "leftTotals" << leftTotals << endl;
 	//grab data from left
 
 	Attribute leftAttribute = getAttributeFromName(leftAttrs, cond.lhsAttr);
@@ -768,20 +787,30 @@ RC HashJoin::getNextTuple(void *data) {
 	while (true) {
 		if (leftCurrentSlot == leftTotals) {
 			leftCurrentPage++;
-			currentPartition++;
-			if (leftCurrentPage == (short) left.totalPages || currentPartition == numBuckets) {
-				free(leftData);
-				free(leftAttrData);
-				return QE_EOF;
+
+			if (leftCurrentPage == (short) left.totalPages) {
+				leftCurrentPage = 0;
+				currentPartition++;
+				if (currentPartition == numBuckets) {
+					free(leftData);
+					free(leftAttrData);
+					cerr << " End of partitions I'm returning" << endl;
+					return QE_EOF;
+				}
+				left = leftPartitions[currentPartition];
+				hasHashTable = false;
+
 			}
 
 			leftCurrentSlot = 0;
-			hasHashTable = false;
+
 			left.fHandle.ReadPage(leftCurrentPage, left.buffer);
 			memcpy(&leftTotals, (char*) left.buffer + END_OF_PAGE - unit,unit);
 		}
 
 		if (!hasHashTable) {
+			cerr << "entering  building hash" << endl;
+			m.clear();
 			hasHashTable = true;
 			Partition part = rightPartitions[currentPartition];
 			unsigned total = part.totalPages;
@@ -796,7 +825,8 @@ RC HashJoin::getNextTuple(void *data) {
 			for (unsigned page = 0; page < total; page++) {
 				part.fHandle.ReadPage(page, part.buffer);
 				short total_records;
-				memcpy(&total_records, (char*) part.buffer + END_OF_PAGE - unit,unit);
+				memcpy(&total_records, (char*) part.buffer + END_OF_PAGE - unit
+				, unit);
 
 				for (short i = 0; i < total_records; i++) {
 					void *rightdata = malloc(200);
@@ -816,13 +846,14 @@ RC HashJoin::getNextTuple(void *data) {
 					unsigned key = hash_function(attrData, 2 * numBuckets, theAttribute.type);
 
 					m.insert(pair<unsigned, Record>(key, aRecord));
-
+cerr<< "Inserting" << key << "and" << aRecord.size << endl;
 				}
 
 			} // end of looping thru pages
 			free(attrData);
 		} // end of !hasHashTable
-
+if (m.empty()) leftCurrentSlot  = leftTotals;
+	else {
 		offset = ((leftCurrentSlot + 1) << 2) + unit;
 		memcpy(&start, (char*) left.buffer + END_OF_PAGE - offset, unit);
 		offset += unit;
@@ -833,10 +864,10 @@ RC HashJoin::getNextTuple(void *data) {
 
 		unsigned key = hash_function(leftAttrData, 2 * numBuckets, leftAttribute.type);
 
-		pair<multimap<unsigned, Record>::iterator, multimap<unsigned, Record>::iterator> ppp;
+		pair<multimap<unsigned, Record>::iterator , multimap<unsigned, Record>::iterator> ppp;
 
 		ppp = m.equal_range(key);
-
+		cerr << "finding key" << endl;
 		Record matched;
 		short i = 0;
 		for (multimap<unsigned, Record>::iterator it2 = ppp.first; it2 != ppp.second; ++it2) {
@@ -847,6 +878,7 @@ RC HashJoin::getNextTuple(void *data) {
 				rightIndex++;
 				free(leftData);
 				free(leftAttrData);
+				cerr << "I'm returning SUCCESS" << endl;
 				return RC_SUCCESS;
 			} else
 				i++;
@@ -854,6 +886,8 @@ RC HashJoin::getNextTuple(void *data) {
 		leftCurrentSlot++;
 		rightIndex = 0;
 	}
+	}
+	cerr << "returning SUCCESS" << endl;
 	return RC_SUCCESS;
 }
 

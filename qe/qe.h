@@ -73,14 +73,16 @@ public:
 			// convert to char *
 			attrNames.push_back(attrs[i].name);
 		}
+		// Store tablename
+				this->tablename = tablename;
+				if (alias)
+					this->tablename = string(alias);
+
 		// Call rm scan to get iterator
 		iter = new RM_ScanIterator();
 		rm.scan(tablename, "", NO_OP, NULL, attrNames, *iter);
 
-		// Store tablename
-		this->tablename = tablename;
-		if (alias)
-			this->tablename = string(alias);
+
 	}
 	;
 
@@ -348,19 +350,19 @@ short rightIndex;
 			const unsigned numPages // Number of pages can be used to do join (decided by the optimizer)
 
 			) {
-		this->leftInput = leftIn;
-		this->rightInput = rightIn;
+		leftInput = leftIn;
+		rightInput = rightIn;
 		leftIn->getAttributes(leftAttrs);
 		rightIn->getAttributes(rightAttrs);
-		this->cond = condition;
-		this->numBuckets = numPages;
-		this->hasHashTable = false;
-		this->currentPartition = 0;
-		this->leftCurrentPage = 0;
-		this->leftCurrentSlot =0;
-this->rightIndex =0;
-		partitionTable(this->leftInput, this->leftPartitions, cond.lhsAttr);
-		partitionTable(this->rightInput, this->rightPartitions, cond.rhsAttr);
+		cond = condition;
+		numBuckets = numPages;
+		hasHashTable = false;
+		currentPartition = 0;
+		leftCurrentPage = 0;
+		leftCurrentSlot =0;
+		rightIndex =0;
+		partitionTable(leftInput, leftPartitions, cond.lhsAttr);
+		partitionTable(rightInput, rightPartitions, cond.rhsAttr);
 	}
 	string getTableName() {
 		return NULL;
