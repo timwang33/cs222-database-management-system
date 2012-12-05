@@ -611,7 +611,7 @@ RC INLJoin::getNextTuple(void *data) {
 HashJoin::~HashJoin() {
 
 }
-unsigned h1(void* value, unsigned modNumber, AttrType type) {
+unsigned hash_function(void* value, unsigned modNumber, AttrType type) {
 
 	int intVal;
 	float floatVal;
@@ -717,7 +717,7 @@ RC HashJoin::partitionTable(Iterator *input, vector<Partition> &allPartitions, s
 				writer = allPartitions[i];
 				memcpy(&total, (char*) writer.buffer + END_OF_PAGE - unit,unit);
 				if (total > 0) {
-					writer.fHandle.WritePage(writer.totalPages,writer.buffer);
+					writer.fHandle.WritePage(writer.totalPages, writer.buffer);
 					writer.totalPages++;
 					CreateNewPage(writer.buffer);
 				}
@@ -728,7 +728,7 @@ RC HashJoin::partitionTable(Iterator *input, vector<Partition> &allPartitions, s
 		//get data
 		getAttributeData(attrs, attr, data, attrData);
 
-		slot = h1(attrData, this->numBuckets, theAttribute.type);
+		slot = hash_function(attrData, this->numBuckets, theAttribute.type);
 		short size;
 		getSizeOfTuple(data, attrs, size);
 		Partition writer = allPartitions[slot];
@@ -742,22 +742,129 @@ RC HashJoin::partitionTable(Iterator *input, vector<Partition> &allPartitions, s
 		}
 		WriteTo(writer.buffer, data, size);
 
-
 	}
+	return RC_SUCCESS;
 }
 
 RC HashJoin::getNextTuple(void *data) {
-	if (this->currentPartition == this->numBuckets) return QE_EOF;
 
-	if (!this->hasHashTable) {
-		//buildHashTable(currentPartition,this->rightAttrs,this_>cond.rhsAttr,this->m);
+	if (currentPartition == numBuckets)
+		return QE_EOF;
 
+	//PF_Manager *manager = PF_Manager::Instance();
+	short offset, start, length = 0;
 
+	Partition left = leftPartitions[currentPartition];
+
+	left.fHandle.ReadPage(leftCurrentPage, left.buffer);
+	short leftTotals;
+	memcpy(&leftTotals, (char*) left.buffer + END_OF_PAGE - unit,unit);
+	//grab data from left
+
+	Attribute leftAttribute = getAttributeFromName(leftAttrs, cond.lhsAttr);
+
+	void *leftData = malloc(200);
+	void *leftAttrData = malloc(100);
+	while (true) {
+		if (leftCurrentSlot == leftTotals) {
+			leftCurrentPage++;
+			currentPartition++;
+			if (leftCurrentPage == (short) left.totalPages || currentPartition == numBuckets) {
+				free(leftData);
+				free(leftAttrData);
+				return QE_EOF;
+			}
+
+			leftCurrentSlot = 0;
+			hasHashTable = false;
+			left.fHandle.ReadPage(leftCurrentPage, left.buffer);
+			memcpy(&leftTotals, (char*) left.buffer + END_OF_PAGE - unit,unit);
+		}
+
+		if (!hasHashTable) {
+			hasHashTable = true;
+			Partition part = rightPartitions[currentPartition];
+			unsigned total = part.totalPages;
+
+			/*string name = rightInput->getTableName();
+			 string String = static_cast<ostringstream*>(&(ostringstream() << currentPartition))->str();
+			 string fileName = name + "Part" + String + ".datatemp";*/
+
+			Attribute theAttribute = getAttributeFromName(rightAttrs, cond.rhsAttr);
+			void * attrData = malloc(100);
+
+			for (unsigned page = 0; page < total; page++) {
+				part.fHandle.ReadPage(page, part.buffer);
+				short total_records;
+				memcpy(&total_records, (char*) part.buffer + END_OF_PAGE - unit,unit);
+
+				for (short i = 0; i < total_records; i++) {
+					void *rightdata = malloc(200);
+					offset = ((i + 1) << 2) + unit;
+					memcpy(&start, (char*) part.buffer + END_OF_PAGE - offset, unit);
+					offset += unit;
+					memcpy(&length, (char*) part.buffer + END_OF_PAGE - offset, unit);
+					memcpy((char*) rightdata, (char*) part.buffer + start, length);
+
+					getAttributeData(rightAttrs, cond.rhsAttr, rightdata, attrData);
+
+					Record aRecord;
+
+					aRecord.data = data;
+					aRecord.size = length;
+
+					unsigned key = hash_function(attrData, 2 * numBuckets, theAttribute.type);
+
+					m.insert(pair<unsigned, Record>(key, aRecord));
+
+				}
+
+			} // end of looping thru pages
+			free(attrData);
+		} // end of !hasHashTable
+
+		offset = ((leftCurrentSlot + 1) << 2) + unit;
+		memcpy(&start, (char*) left.buffer + END_OF_PAGE - offset, unit);
+		offset += unit;
+		memcpy(&length, (char*) left.buffer + END_OF_PAGE - offset, unit);
+		memcpy((char*) leftData, (char*) left.buffer + start, length);
+
+		getAttributeData(leftAttrs, cond.lhsAttr, leftData, leftAttrData);
+
+		unsigned key = hash_function(leftAttrData, 2 * numBuckets, leftAttribute.type);
+
+		pair<multimap<unsigned, Record>::iterator, multimap<unsigned, Record>::iterator> ppp;
+
+		ppp = m.equal_range(key);
+
+		Record matched;
+		short i = 0;
+		for (multimap<unsigned, Record>::iterator it2 = ppp.first; it2 != ppp.second; ++it2) {
+			if (i == rightIndex) {
+				matched = (*it2).second;
+				memcpy(data, leftData, length);
+				memcpy((char*) data + length, matched.data, matched.size);
+				rightIndex++;
+				free(leftData);
+				free(leftAttrData);
+				return RC_SUCCESS;
+			} else
+				i++;
+		}
+		leftCurrentSlot++;
+		rightIndex = 0;
 	}
 	return RC_SUCCESS;
 }
 
 void HashJoin::getAttributes(vector<Attribute> &attrs) const {
+	attrs.clear();
 
+	for (unsigned i = 0; i < this->leftAttrs.size(); i++) {
+		attrs.push_back(leftAttrs[i]);
+	}
+	for (unsigned i = 0; i < this->rightAttrs.size(); i++) {
+		attrs.push_back(rightAttrs[i]);
+	}
 }
 

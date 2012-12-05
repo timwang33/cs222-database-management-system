@@ -337,7 +337,10 @@ public:
 	vector<Attribute> leftAttrs, rightAttrs;
 	unsigned currentPartition;
 	bool hasHashTable;
-	multimap<int, Record> m;
+	multimap<unsigned, Record> m;
+short leftCurrentPage;
+short leftCurrentSlot;
+short rightIndex;
 
 	HashJoin(Iterator *leftIn, // Iterator of input R
 			Iterator *rightIn, // Iterator of input S
@@ -351,9 +354,11 @@ public:
 		rightIn->getAttributes(rightAttrs);
 		this->cond = condition;
 		this->numBuckets = numPages;
-this->hasHashTable = false;
-this->currentPartition = 0;
-
+		this->hasHashTable = false;
+		this->currentPartition = 0;
+		this->leftCurrentPage = 0;
+		this->leftCurrentSlot =0;
+this->rightIndex =0;
 		partitionTable(this->leftInput, this->leftPartitions, cond.lhsAttr);
 		partitionTable(this->rightInput, this->rightPartitions, cond.rhsAttr);
 	}
