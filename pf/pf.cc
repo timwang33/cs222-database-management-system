@@ -84,13 +84,14 @@ if (fp == NULL) return RC_FAIL;
 
 PF_FileHandle::PF_FileHandle() {
 	handle = NULL;
+	nameOfFile = NULL;
 }
 
 PF_FileHandle::~PF_FileHandle() {
-	if (nameOfFile != NULL)
-			free (nameOfFile);
-	if (handle!=NULL)
-		free (handle);
+	//if (nameOfFile != NULL)
+		//	free (nameOfFile);
+	//if (handle!=NULL)
+		//free (handle);
 }
 
 RC PF_FileHandle::ReadPage(PageNum pageNum, void *data) {
@@ -143,7 +144,9 @@ RC PF_FileHandle::AppendPage(const void *data) {
 }
 
 RC PF_FileHandle::ClearHandle() {
+
 		handle = NULL;
+		nameOfFile = NULL;
 
 		return RC_SUCCESS;
 }

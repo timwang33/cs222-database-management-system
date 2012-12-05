@@ -1722,9 +1722,10 @@ RC RM::scan(const string tableName, const string conditionAttribute, const CompO
 	}
 
 	if (value != NULL) {
-		rm_ScanIterator.value = malloc(size);
-		memcpy(rm_ScanIterator.value, (char*) value, size);
-	}
+		//rm_ScanIterator.value = malloc(size);
+		//memcpy(rm_ScanIterator.value, (char*) value, size);
+		rm_ScanIterator.value = (void*) value;
+	} else rm_ScanIterator.value = NULL;
 
 	rm_ScanIterator.operation = compOp;
 
