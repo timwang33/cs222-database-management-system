@@ -902,3 +902,129 @@ void HashJoin::getAttributes(vector<Attribute> &attrs) const {
 	}
 }
 
+Aggregate::~Aggregate()
+{
+
+}
+
+void Aggregate::getAttributes(vector<Attribute> &attrs) const
+{
+	attrs.clear();
+	attrs = this->attrs;
+}
+
+RC Aggregate::Init(Iterator *input, vector<Attribute> attrs, Attribute aggAtt, float *min, float *max)
+{
+	void *temp = malloc(200);
+	void *aggData = malloc(200); //keep data of Attribute
+	float tempValue;
+	int rc = input->getNextTuple(temp);
+	if(rc == RC_SUCCESS)
+	{
+		this->getAggData(attrs, aggAtt.name, temp, aggData);
+
+		tempValue = (float)*(int*)(char*)aggData;
+		*max = tempValue;
+		*min = tempValue;
+
+
+	}
+		return rc;
+}
+
+RC Aggregate::getNextTuple(void *data)
+{
+	void *temp = malloc(200);
+	void *aggData = malloc(200); //keep data of Attribute
+
+	Attribute aggAttr, gAttr;
+	aggAttr = this->aggAttr;
+	gAttr = this->gAttr;
+	AggregateOp operation;
+	operation = op;
+	int rc;
+	float value = 0.0;
+	float returnValue = 0.0;
+	//if(gAttr!=NULL)
+	if(this->numberOfParameter == 3)
+	{
+		rc = this-> input->getNextTuple(temp);
+		if(rc == RC_SUCCESS)
+		{
+			getAttributeData(this->attrs, aggAttr.name, temp, aggData);
+			value=(float)*(int*)((char*)aggData);
+			//value = (float)value1;
+			//cout<<"Gia tri: "<<value<<endl;
+			this -> count += 1;
+			this-> sum += value;
+			switch (operation)
+			{
+				case MIN:
+					if(this->min > value)
+					{
+						this->min = value;
+					}
+					returnValue = min;
+					break;
+				case MAX:
+					if(this->max < value)
+					{
+						this->max = value;
+					}
+					returnValue = max;
+					break;
+				case COUNT:
+					returnValue =(float) count;
+					break;
+				case SUM:
+					returnValue = sum;
+					break;
+				case AVG:
+					returnValue =(float) sum/count;
+					break;
+				default:
+					cerr<< "Error Aggredate Operation";
+					goto fail;
+				//break;
+
+			} // end of switch
+			switch(aggAttr.type)
+			{
+				case TypeInt:
+				case TypeReal:
+				//int tempValue = (int)returnValue;
+					goto success;
+
+
+				//break;
+				default:
+					cerr<< "Invalid type!";
+					goto fail;
+				//break;
+			}
+
+		}
+		else
+			return RC_FAIL;
+		success:
+		memcpy((char*)data, &returnValue, 4);
+		free(temp);
+		free(aggData);
+		return RC_SUCCESS;
+		fail: free(temp);
+		free(aggData);
+		return RC_FAIL;
+	}//Chuyen sang phan co 4 tham so - groupBy
+	else
+	{
+		//
+		//
+	}
+}
+
+void Aggregate:: getAggData(const vector<Attribute> attrs, const string attr, const void *data, void *attrData)
+{
+	getAttributeData(attrs, attr, data, attrData);
+
+}
+
