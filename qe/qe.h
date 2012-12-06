@@ -45,6 +45,8 @@ struct Condition {
 class Iterator {
 	// All the relational operators and access methods are iterators.
 public:
+
+	virtual void setIterator() =0;
 	virtual RC getNextTuple(void *data) = 0;
 	virtual void getAttributes(vector<Attribute> &attrs) const = 0;
 	virtual string getTableName() = 0;
@@ -150,7 +152,18 @@ public:
 		this->handle = indexHandle;
 	}
 	;
+void setIterator() {
+	void* value = NULL;
+	if (iter->cond_value != NULL) {
+	 value = malloc(4);
+	memcpy(value,iter->cond_value,4);
+	}
+	setIterator(iter->operation,value);
+	if (value != NULL)
+		free(value);
 
+
+};
 	// Start a new iterator given the new compOp and value
 	void setIterator(CompOp compOp, void *value) {
 		if (iter != NULL)
@@ -212,10 +225,14 @@ public:
 	}
 	;
 	string getTableName() {
-		return NULL;
+		return input->getTableName();
 	}
 	;
 	~Filter();
+
+	void setIterator() {
+
+	};
 
 	RC getNextTuple(void *data);
 	// For attribute in vector<Attribute>, name it as rel.attr
@@ -240,11 +257,14 @@ public:
 		this->projectAttrNames = attrNames;
 	}
 	string getTableName() {
-		return NULL;
+		return input->getTableName();
 	}
 	;
 	~Project();
 
+	void setIterator() {
+
+	};
 	RC getNextTuple(void *data);
 	// For attribute in vector<Attribute>, name it as rel.attr
 	void getAttributes(vector<Attribute> &attrs) const;
@@ -280,6 +300,10 @@ public:
 	;
 	~NLJoin();
 
+	void setIterator() {
+
+	};
+
 	RC getNextTuple(void *data);
 	// For attribute in vector<Attribute>, name it as rel.attr
 	void getAttributes(vector<Attribute> &attrs) const;
@@ -295,13 +319,14 @@ public:
 	vector<Attribute> leftAttrs, rightAttrs;
 	void *leftTuple;
 	bool endOftable;
+	bool rightIsSet;
 
 	void RestartIterator() {
 		Value value;
 		value.type = TypeReal;
 		value.data = malloc(200);
 		*(float *) value.data = 0.00;
-		this->rightInput->setIterator(NO_OP, value.data);
+
 
 	}
 	//set iterator for index
@@ -314,14 +339,16 @@ public:
 		this->endOftable = true;
 		this->leftTuple = malloc(200);
 
-		RestartIterator();
+
 	}
 	string getTableName() {
 		return leftInput->getTableName() + rightInput->getTableName();
 	}
 	;
 	~INLJoin();
+void setIterator() {
 
+};
 	RC getNextTuple(void *data);
 	// For attribute in vector<Attribute>, name it as rel.attr
 	void getAttributes(vector<Attribute> &attrs) const;
@@ -365,11 +392,14 @@ public:
 		partitionTable(rightInput, rightPartitions, cond.rhsAttr);
 	}
 	string getTableName() {
-		return NULL;
+		return leftInput->getTableName() + rightInput->getTableName();
 	}
 	;
 	~HashJoin();
 
+	void setIterator() {
+
+	};
 	RC partitionTable(Iterator *input, vector<Partition> &allPartitions, string attr);
 	RC getNextTuple(void *data);
 	// For attribute in vector<Attribute>, name it as rel.attr
@@ -387,7 +417,7 @@ public:
 	float sum, max, min;
 	int numberOfParameter;
 
-	void getAggData(const vector<Attribute> attrs, const string attr, const void *data, void *attrData);
+
 	RC Init(Iterator *input, vector<Attribute> attrs, Attribute aggAtt, float *min, float *max);
 
 	Aggregate(Iterator *input, // Iterator of input R
@@ -399,8 +429,8 @@ public:
 		this->op = op;
 		input->getAttributes(attrs);
 		Init(this->input, this->attrs, this->aggAttr, &(this->min), &(this->max));
-		sum = min;
-		count = 1;
+		sum = 0;
+		count = 0;
 		this->numberOfParameter = 3;
 	}
 	;
@@ -430,6 +460,9 @@ public:
 	;
 	~Aggregate();
 
+	void setIterator() {
+
+	};
 	RC getNextTuple(void *data);
 
 	// Please name the output attribute as aggregateOp(aggAttr)
