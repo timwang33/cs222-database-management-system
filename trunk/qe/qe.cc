@@ -4,6 +4,7 @@
 #include <math.h>
 #include <stdlib.h>
 
+const int dataSize = 200;
 //compare 2 memory
 int compare(void *data1, void *data2, AttrType type) {
 	short rc;
@@ -474,12 +475,32 @@ void INLJoin::getAttributes(vector<Attribute> &attrs) const {
 	}
 
 }
-
+CompOp oppositeOperation(CompOp anOp) {
+	switch (anOp) {
+	case NO_OP:
+		return NO_OP;
+	case LT_OP:
+		return GE_OP;
+	case LE_OP:
+		return GT_OP;
+	case GT_OP:
+		return LE_OP;
+	case GE_OP:
+		return LT_OP;
+	case EQ_OP:
+		return EQ_OP;
+	case NE_OP:
+		return NE_OP;
+	default :
+		return NO_OP; // should never reach here
+	}
+}
 RC INLJoin::getNextTuple(void *data) {
 	//leftTuple da duoc luu trong NLJoin
-	void *rightTuple = malloc(200);
-	void *leftAttrData = malloc(200);
-	void *rightAttrData = malloc(200);
+
+	void *rightTuple = malloc(dataSize);
+	void *leftAttrData = malloc(dataSize);
+	void *rightAttrData = malloc(dataSize);
 	int rc1 = RC_SUCCESS;
 
 	//Get Left Attribute
@@ -495,32 +516,31 @@ RC INLJoin::getNextTuple(void *data) {
 	//Doc moi va endofFile = false, start right table
 
 	while (true) {
-		memset(rightTuple, 0, 200);
-		memset(leftAttrData, 0, 200);
-		memset(rightAttrData, 0, 200);
+		memset(rightTuple, 0, dataSize);
+		memset(leftAttrData, 0, dataSize);
+		memset(rightAttrData, 0, dataSize);
 
 		if (endOftable == true) {
-			memset(this->leftTuple, 0, 200);
+			memset(this->leftTuple, 0, dataSize);
 			rc1 = this->leftInput->getNextTuple(this->leftTuple);
-
-			//cout<<" Gia tri cua ve trai la " << *(float*)((char*)leftTuple + 8)<<endl;
 
 			if (rc1 != RC_SUCCESS) {
 				goto fail;
 			}
 			endOftable = false;
+			//get data of leftAttribute
+			getAttributeData(this->leftAttrs, leftAttrName, this->leftTuple, leftAttrData);
+			this->rightInput->setIterator(oppositeOperation(operation), leftAttrData);
 		}
 
-		//get data of leftAttribute
-		getAttributeData(this->leftAttrs, leftAttrName, this->leftTuple, leftAttrData);
-		// leftInput van con => success va rightTuple van con endOffile => false
+
 		int rc2 = this->rightInput->getNextTuple(rightTuple);
 		//cout<<" Gia tri cua ve phai la " << *(float*)((char*)rightTuple + 4)<<endl;
 
 		if (rc2 != RC_SUCCESS)
 		{
 			endOftable = true;
-			RestartIterator();
+			//RestartIterator();
 		} else {
 			//join, not eliminate duplicate attributes
 			if (condition.bRhsIsAttr == false) {
@@ -955,13 +975,19 @@ RC Aggregate::Init(Iterator *input, vector<Attribute> attrs, Attribute aggAtt, f
 	int rc = input->getNextTuple(temp);
 	if (rc == RC_SUCCESS)
 	{
-		this->getAggData(attrs, aggAtt.name, temp, aggData);
-
-		tempValue = (float) *(int*) (char*) aggData;
+		getAttributeData(attrs, aggAtt.name, temp, aggData);
+		if(aggAtt.type == TypeInt)
+		{
+			tempValue = (float) *(int*)aggData;
+		}
+		else tempValue = *(float*)aggData;
 		*max = tempValue;
 		*min = tempValue;
 
 	}
+	input->setIterator();
+	free(aggData);
+	free(temp);
 	return rc;
 }
 
@@ -983,7 +1009,11 @@ RC Aggregate::getNextTuple(void *data) {
 		if (rc == RC_SUCCESS)
 		{
 			getAttributeData(this->attrs, aggAttr.name, temp, aggData);
-			value = (float) *(int*) ((char*) aggData);
+			if (aggAttr.type == TypeInt)
+				value = (float) *(int*) aggData;
+			else if (aggAttr.type == TypeReal)
+				value = *(float*) aggData;
+			else goto fail;
 			//value = (float)value1;
 			//cout<<"Gia tri: "<<value<<endl;
 			this->count += 1;
@@ -1030,7 +1060,7 @@ RC Aggregate::getNextTuple(void *data) {
 			}
 
 		} else
-			return RC_FAIL;
+			goto fail;
 		success: memcpy((char*) data, &returnValue, 4);
 		free(temp);
 		free(aggData);
@@ -1040,13 +1070,11 @@ RC Aggregate::getNextTuple(void *data) {
 		return RC_FAIL;
 	} //Chuyen sang phan co 4 tham so - groupBy
 	else {
+		return QE_EOF;
 		//
 		//
 	}
 }
 
-void Aggregate::getAggData(const vector<Attribute> attrs, const string attr, const void *data, void *attrData) {
-	getAttributeData(attrs, attr, data, attrData);
 
-}
 

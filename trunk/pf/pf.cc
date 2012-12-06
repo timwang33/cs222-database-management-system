@@ -88,10 +88,10 @@ PF_FileHandle::PF_FileHandle() {
 }
 
 PF_FileHandle::~PF_FileHandle() {
-	//if (nameOfFile != NULL)
-		//	free (nameOfFile);
-	//if (handle!=NULL)
-		//free (handle);
+	if (nameOfFile != NULL)
+			nameOfFile = NULL;
+	if (handle!=NULL)
+		handle = NULL;
 }
 
 RC PF_FileHandle::ReadPage(PageNum pageNum, void *data) {
@@ -173,6 +173,7 @@ unsigned PF_FileHandle::GetNumberOfPages() {
 	unsigned size;
 	if (handle == NULL) {
 	  cout << "wait" << endl;
+	  return 0;
 	}
 	fseek(handle, 0, SEEK_END);
 	size = ftell(handle) / PF_PAGE_SIZE;

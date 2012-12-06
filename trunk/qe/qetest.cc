@@ -346,7 +346,7 @@ void testCase_2()
     Value value;
     value.type = TypeReal;
     value.data = malloc(bufsize);
-    *(float *)value.data = 100.0;
+    *(float *)value.data = 10.0;
     cond.rhsValue = value;
 
     // Create Filter
@@ -428,7 +428,7 @@ void testCase_4()
     TableScan *rightIn = new TableScan(*rm, "right");
 
     Condition cond1;
-        cond1.lhsAttr = "left.B";
+        cond1.lhsAttr = "right.B";
         cond1.op = NO_OP;
         cond1.bRhsIsAttr = false;
         Value value;
@@ -529,7 +529,7 @@ void testCase_5()
 
     Condition cond;
     cond.lhsAttr = "left.C";
-    cond.op = EQ_OP;
+    cond.op = LE_OP;
     cond.bRhsIsAttr = true;
     cond.rhsAttr = "right.C";
 
@@ -543,27 +543,27 @@ void testCase_5()
         int offset = 0;
 
         // Print left.A
-        cout << "left.A " << *(int *)((char *)data + offset);// << endl;
+        cout << "left.A " << *(int *)((char *)data + offset) << endl;
         offset += sizeof(int);
 
         // Print left.B
-        cout << "left.B " << *(int *)((char *)data + offset);// << endl;
+        cout << "left.B " << *(int *)((char *)data + offset) << endl;
         offset += sizeof(int);
 
         // Print left.C
-        cout << "left.C " << *(float *)((char *)data + offset);// << endl;
+        cout << "left.C " << *(float *)((char *)data + offset) << endl;
         offset += sizeof(float);
 
         // Print right.B
-        cout << "right.B " << *(int *)((char *)data + offset);// << endl;
+        cout << "right.B " << *(int *)((char *)data + offset) << endl;
         offset += sizeof(int);
 
         // Print right.C
-        cout << "right.C " << *(float *)((char *)data + offset);// << endl;
+        cout << "right.C " << *(float *)((char *)data + offset) << endl;
         offset += sizeof(float);
 
         // Print right.D
-        cout << "right.D " << *(int *)((char *)data + offset) << endl;
+        cout << "right.D " << *(int *)((char *)data + offset) << endl<< endl;
         offset += sizeof(int);
 
         memset(data, 0, bufsize);
@@ -918,7 +918,7 @@ void testCase_10()
     free(data);
     return;
 }
-/*
+
 
 void extraTestCase_1()
 {
@@ -957,8 +957,13 @@ void extraTestCase_2()
     cout << "****In Extra Test Case 2****" << endl;
 
     // Create TableScan
-    TableScan *input = new TableScan(*rm, "right");
-
+    //TableScan *input = new TableScan(*rm, "right");
+    IX_IndexHandle ixHandle;
+        ixManager->OpenIndex("right", "B", ixHandle);
+        IndexScan *input = new IndexScan(*rm, ixHandle, "right");
+    //IndexScan *input = new IndexScan(*rm, "right");
+        int val = 31;
+        input->setIterator(NO_OP, NULL);
     // Create Aggregate
     Attribute aggAttr;
     aggAttr.name = "right.B";
@@ -977,7 +982,7 @@ void extraTestCase_2()
     return;
 }
 
-
+/*
 void extraTestCase_3()
 {
     // Functions Tested
@@ -1085,21 +1090,21 @@ int main()
     createIndexforRightC(rightRIDs);
 
     // Test Cases
-    testCase_1();
-    testCase_2();
-   testCase_3();
-   testCase_4();
-    testCase_5();
-    testCase_6();
+   // testCase_1();
+   // testCase_2();
+  // testCase_3();
+   //testCase_4();
+   testCase_5();
+   /* testCase_6();
     testCase_7();
     testCase_8();
     testCase_9();
     testCase_10();
-/*
+
     // Extra Credit
-    extraTestCase_1();
-    extraTestCase_2();
-    extraTestCase_3();
+    extraTestCase_1();*/
+   // extraTestCase_2();
+/*    extraTestCase_3();
     extraTestCase_4();*/
 
     return 0;
