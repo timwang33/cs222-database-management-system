@@ -416,9 +416,12 @@ public:
 	int count;
 	float sum, max, min;
 	int numberOfParameter;
-
+	bool isDone;
 
 	RC Init(Iterator *input, vector<Attribute> attrs, Attribute aggAtt, float *min, float *max);
+
+	map<string, char*> mymap;
+	map<string, char*>:: iterator it;
 
 	Aggregate(Iterator *input, // Iterator of input R
 			Attribute aggAttr, // The attribute over which we are computing an aggregate
@@ -432,6 +435,7 @@ public:
 		sum = 0;
 		count = 0;
 		this->numberOfParameter = 3;
+		isDone = false;
 	}
 	;
 
@@ -451,11 +455,15 @@ public:
 		max = 0.0;
 		min = 0.0;
 		this->numberOfParameter = 4;
+		isDone = false;
+
+		createMap();
+		it = mymap.begin() ;
 	}
 	;
 
 	string getTableName() {
-		return NULL;
+		return input->getTableName();
 	}
 	;
 	~Aggregate();
@@ -469,6 +477,7 @@ public:
 	// E.g. Relation=rel, attribute=attr, aggregateOp=MAX
 	// output attrname = "MAX(rel.attr)"
 	void getAttributes(vector<Attribute> &attrs) const;
+	RC createMap();
 };
 
 #endif
