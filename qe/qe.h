@@ -34,6 +34,15 @@ struct Record {
 	void *data;
 	short size;
 };
+
+struct strCmp {
+    bool operator()( const string s1, const string s2 ) const {
+    	if (s1.length() != s2.length() )
+    		return (s1.length() < s2.length());
+    	else
+      return strcmp( s1.c_str(), s2.c_str() ) < 0;
+    }
+  };
 struct Condition {
 	string lhsAttr; // left-hand side attribute
 	CompOp op; // comparison operator
@@ -53,6 +62,8 @@ public:
 	virtual ~Iterator() {
 	}
 	;
+
+
 };
 
 class TableScan: public Iterator {
@@ -222,6 +233,7 @@ public:
 		input->getAttributes(attrs);
 		this->input = input;
 		this->condition = condition;
+
 	}
 	;
 	string getTableName() {
@@ -251,11 +263,15 @@ class Project: public Iterator {
 public:
 	Project(Iterator *input, const vector<string> &attrNames) {
 		//attrs contains all Attributes
+
 		input->getAttributes(attrs);
 		this->input = input;
 		//projectAttrNames contains all project Attribute's Name
 		this->projectAttrNames = attrNames;
+
+
 	}
+
 	string getTableName() {
 		return input->getTableName();
 	}
@@ -420,7 +436,7 @@ public:
 
 	RC Init(Iterator *input, vector<Attribute> attrs, Attribute aggAtt, float *min, float *max);
 
-	map<string, char*> mymap;
+	map<string, char*, strCmp> mymap;
 	map<string, char*>:: iterator it;
 
 	Aggregate(Iterator *input, // Iterator of input R
