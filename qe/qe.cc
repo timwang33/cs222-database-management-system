@@ -491,7 +491,7 @@ CompOp oppositeOperation(CompOp anOp) {
 		return EQ_OP;
 	case NE_OP:
 		return NE_OP;
-	default :
+	default:
 		return NO_OP; // should never reach here
 	}
 }
@@ -532,7 +532,6 @@ RC INLJoin::getNextTuple(void *data) {
 			getAttributeData(this->leftAttrs, leftAttrName, this->leftTuple, leftAttrData);
 			this->rightInput->setIterator(oppositeOperation(operation), leftAttrData);
 		}
-
 
 		int rc2 = this->rightInput->getNextTuple(rightTuple);
 		//cout<<" Gia tri cua ve phai la " << *(float*)((char*)rightTuple + 4)<<endl;
@@ -630,8 +629,7 @@ RC INLJoin::getNextTuple(void *data) {
 
 HashJoin::~HashJoin() {
 
-
-	for (unsigned i =0; i< numBuckets; i++) {
+	for (unsigned i = 0; i < numBuckets; i++) {
 		fclose(leftPartitions[i].fHandle.GetHandle());
 		fclose(rightPartitions[i].fHandle.GetHandle());
 		remove(leftPartitions[i].fHandle.nameOfFile);
@@ -645,10 +643,10 @@ HashJoin::~HashJoin() {
 	leftPartitions.clear();
 	rightPartitions.clear();
 
-	for (multimap<unsigned, Record>::iterator it = m.begin();	it != m.end();		++it) {
-										free((*it).second.data);
-									}
-									m.clear();
+	for (multimap<unsigned, Record>::iterator it = m.begin(); it != m.end(); ++it) {
+		free((*it).second.data);
+	}
+	m.clear();
 
 }
 unsigned hash_function(void* value, unsigned modNumber, AttrType type) {
@@ -769,7 +767,6 @@ RC HashJoin::partitionTable(Iterator *input, vector<Partition> &allPartitions, s
 				if (total > 0) {
 					allPartitions[i].fHandle.WritePage(allPartitions[i].totalPages, allPartitions[i].buffer);
 
-
 					//cerr << i << " " << "page " << allPartitions[i].totalPages << " " << total << "records" << endl;
 					allPartitions[i].totalPages++;
 					CreateNewPage(allPartitions[i].buffer);
@@ -852,7 +849,7 @@ RC HashJoin::getNextTuple(void *data) {
 
 		if (!hasHashTable) {
 			//cerr << "entering  building hash" << endl;
-			for (multimap<unsigned, Record>::iterator it = m.begin();	it != m.end();		++it) {
+			for (multimap<unsigned, Record>::iterator it = m.begin(); it != m.end(); ++it) {
 				free((*it).second.data);
 			}
 			m.clear();
@@ -860,9 +857,7 @@ RC HashJoin::getNextTuple(void *data) {
 			Partition part = rightPartitions[currentPartition];
 			unsigned total = part.totalPages;
 
-			/*string name = rightInput->getTableName();
-			 string String = static_cast<ostringstream*>(&(ostringstream() << currentPartition))->str();
-			 string fileName = name + "Part" + String + ".datatemp";*/
+
 
 			Attribute theAttribute = getAttributeFromName(rightAttrs, cond.rhsAttr);
 			void * attrData = malloc(100);
@@ -870,7 +865,7 @@ RC HashJoin::getNextTuple(void *data) {
 			for (unsigned page = 0; page < total; page++) {
 				part.fHandle.ReadPage(page, part.buffer);
 				short total_records;
-				memcpy(&total_records, (char*) part.buffer + END_OF_PAGE - unit, unit);
+				memcpy(&total_records, (char*) part.buffer + END_OF_PAGE - unit,unit);
 
 				for (short i = 0; i < total_records; i++) {
 					void *rightdata = malloc(200);
@@ -921,20 +916,19 @@ RC HashJoin::getNextTuple(void *data) {
 					matched = (*it2).second;
 
 					getAttributeData(rightAttrs, cond.rhsAttr, matched.data, rhs);
-					int compareValue = compare(leftAttrData,rhs,leftAttribute.type);
+					int compareValue = compare(leftAttrData, rhs, leftAttribute.type);
 
 					if (compareValue == 0) {
-					memcpy(data, leftData, length);
-					memcpy((char*) data + length, matched.data, matched.size);
-					rightIndex++;
-					free(rhs);
-					free(leftData);
-					free(leftAttrData);
-					//cerr << "I'm returning SUCCESS" << endl;
-					return RC_SUCCESS;
-					}
-					else {
-						rightIndex ++;
+						memcpy(data, leftData, length);
+						memcpy((char*) data + length, matched.data, matched.size);
+						rightIndex++;
+						free(rhs);
+						free(leftData);
+						free(leftAttrData);
+						//cerr << "I'm returning SUCCESS" << endl;
+						return RC_SUCCESS;
+					} else {
+						rightIndex++;
 						i++;
 					}
 				} else
@@ -961,6 +955,10 @@ void HashJoin::getAttributes(vector<Attribute> &attrs) const {
 
 Aggregate::~Aggregate() {
 
+	for (map<string, char*>::iterator it = mymap.begin(); it != mymap.end(); ++it) {
+			free((*it).second);
+		}
+		mymap.clear();
 }
 
 void Aggregate::getAttributes(vector<Attribute> &attrs) const {
@@ -976,11 +974,10 @@ RC Aggregate::Init(Iterator *input, vector<Attribute> attrs, Attribute aggAtt, f
 	if (rc == RC_SUCCESS)
 	{
 		getAttributeData(attrs, aggAtt.name, temp, aggData);
-		if(aggAtt.type == TypeInt)
-		{
-			tempValue = (float) *(int*)aggData;
-		}
-		else tempValue = *(float*)aggData;
+		if (aggAtt.type == TypeInt) {
+			tempValue = (float) *(int*) aggData;
+		} else
+			tempValue = *(float*) aggData;
 		*max = tempValue;
 		*min = tempValue;
 
@@ -992,33 +989,29 @@ RC Aggregate::Init(Iterator *input, vector<Attribute> attrs, Attribute aggAtt, f
 }
 
 RC Aggregate::getNextTuple(void *data) {
-	void *temp = malloc(200);
-	void *aggData = malloc(200); //keep data of Attribute
+	if (isDone) return QE_EOF;
 
-	Attribute aggAttr, gAttr;
-	aggAttr = this->aggAttr;
-	gAttr = this->gAttr;
-	AggregateOp operation;
-	operation = op;
 	int rc;
 	float value = 0.0;
 	float returnValue = 0.0;
-	//if(gAttr!=NULL)
+
 	if (this->numberOfParameter == 3) {
+		void *temp = malloc(200);
+		void *aggData = malloc(200); //keep data of Attribute
+		while (true) {
 		rc = this->input->getNextTuple(temp);
-		if (rc == RC_SUCCESS)
-		{
-			getAttributeData(this->attrs, aggAttr.name, temp, aggData);
+		if (rc == RC_SUCCESS)		{
+			getAttributeData(attrs, aggAttr.name, temp, aggData);
 			if (aggAttr.type == TypeInt)
 				value = (float) *(int*) aggData;
 			else if (aggAttr.type == TypeReal)
 				value = *(float*) aggData;
-			else goto fail;
-			//value = (float)value1;
-			//cout<<"Gia tri: "<<value<<endl;
+			else
+				goto fail;
+
 			this->count += 1;
 			this->sum += value;
-			switch (operation) {
+			switch (op) {
 			case MIN:
 				if (this->min > value) {
 					this->min = value;
@@ -1043,38 +1036,182 @@ RC Aggregate::getNextTuple(void *data) {
 			default:
 				cerr << "Error Aggredate Operation";
 				goto fail;
-				//break;
+
 
 			} // end of switch
-			switch (aggAttr.type) {
-			case TypeInt:
-			case TypeReal:
-				//int tempValue = (int)returnValue;
-				goto success;
 
-				//break;
-			default:
-				cerr << "Invalid type!";
-				goto fail;
-				//break;
-			}
 
-		} else
-			goto fail;
-		success: memcpy((char*) data, &returnValue, 4);
+		} else {
+			isDone =  true;
+			goto success;
+		}
+		}
+		success:
+		memcpy((char*) data, &returnValue, 4);
 		free(temp);
 		free(aggData);
 		return RC_SUCCESS;
-		fail: free(temp);
+
+		fail:
+		free(temp);
 		free(aggData);
 		return RC_FAIL;
+
 	} //Chuyen sang phan co 4 tham so - groupBy
 	else {
-		return QE_EOF;
-		//
-		//
+		if (it == mymap.end())
+			return QE_EOF;
+		string first = (*it).first;
+		char* second = (*it).second;
+		unsigned length = 4;
+		//cout << (*it).first << " => " << *(float*)((*it).second)<< endl;
+
+		if (gAttr.type == TypeVarChar) {
+			length = first.length();
+			memcpy((char*) data, &length, 4);
+			memcpy((char*) data +length, first.c_str(),length);
+			length += 4;
+		}
+		else if (gAttr.type == TypeInt) {
+			int intFirst = ::strtod(first.c_str(),0);
+			memcpy((char*) data, &intFirst, 4);
+		}
+		else if (gAttr.type == TypeReal) {
+			float floatFirst = ::strtod(first.c_str(),0);
+			memcpy((char*) data, &floatFirst, 4);
+		}
+		memcpy((char*) data + length, second, 4);
+		//cout<<*(float*)data<<endl;
+		//*(float *)((char *)data + offset)
+		//cout<<*(float*)((char*)data+ 4)<<endl;
+		it++;
+		return RC_SUCCESS;
 	}
+
 }
 
+RC Aggregate::createMap() {
+	void * gData = malloc(200);
+	void * temp = malloc(200);
+	void *aggData = malloc(200);
 
+	float value;
+
+
+	string aValue;
+	unsigned count = 0;
+
+	while (true) {
+		int rc = this->input->getNextTuple(temp);
+		if (rc == RC_FAIL) goto fail;
+		getAttributeData(attrs, aggAttr.name, temp, aggData);
+		if (aggAttr.type == TypeInt)
+			value = (float) *(int*) aggData;
+		else if (aggAttr.type == TypeReal)
+			value = *(float*) aggData;
+		else
+			goto fail;
+
+		getAttributeData(this->attrs, gAttr.name, temp, gData);
+
+		float val;
+		string gValue;
+		if (gAttr.type != TypeVarChar) {
+		if (gAttr.type == TypeInt)
+			val = (float) *(int*) gData;
+		else if (gAttr.type == TypeReal)
+			val = *(float*) gData;
+
+		gValue = static_cast<ostringstream*>(&(ostringstream() << val))->str();
+		}
+		else {
+			// not tested yet!
+			unsigned length;
+			memcpy(&length, (char*) gData, 4);
+			memcpy((char*)gValue.c_str(), (char*)gData, length);
+		}
+
+		it = mymap.find(gValue);
+
+		if (it == mymap.end()) {
+			// not existed yet
+			char *test = NULL;
+
+			if (op == AVG)  {
+				test = (char*) malloc(8);
+			}
+			else {
+				test = (char*) malloc(4);
+			}
+
+			if (aggAttr.type == TypeInt || aggAttr.type == TypeReal) {
+				memcpy(test, &value, 4);
+
+				if (op == AVG) {
+						unsigned zero = 0;
+						memcpy((char*)test+4, (char*)&zero, 4);
+				}
+
+			}
+			else  goto fail;
+
+			mymap.insert(pair<string, char*>(gValue, test));
+
+		} else {
+			//co roi cap nhat lai so luong
+
+			char*  secondValue = (*it).second;
+			float second;
+			memcpy(&second,secondValue, 4);
+			switch (op) {
+			case MIN:
+				if (second > value)
+					second = value;
+				break;
+			case MAX:
+				if (second < value)
+					second = value;
+				break;
+			case COUNT:
+				second++;
+				break;
+			case SUM:
+				second += value;
+				break;
+			case AVG:
+				memcpy(&count, (char*)secondValue+4, 4);
+				count++;
+				second += (value - second) / count;
+				break;
+			default:
+				cerr << "Error Aggregate Operation";
+				goto fail;
+
+			} //het switch
+			memcpy((char*)secondValue,&second, 4);
+			if (op == AVG) {
+				memcpy((char*)secondValue+4,&count, 4);
+
+			}
+
+			//(*it).second = secondValue;
+		}
+	} //het while
+	//in ra ket qua, bay gio ta da co multimap
+
+	//}//het 2 kieu int
+	goto success;
+
+	success:
+	free(temp);
+	free(aggData);
+	free(gData);
+	return RC_SUCCESS;
+
+
+	fail: free(temp);
+	free(aggData);
+	free(gData);
+	return RC_FAIL;
+}
 

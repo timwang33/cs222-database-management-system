@@ -982,7 +982,7 @@ void extraTestCase_2()
     return;
 }
 
-/*
+
 void extraTestCase_3()
 {
     // Functions Tested
@@ -1066,7 +1066,7 @@ void extraTestCase_4()
 
     free(data);
     return;
-}*/
+}
 
 
 int main()
@@ -1094,18 +1094,18 @@ int main()
    // testCase_2();
   // testCase_3();
    //testCase_4();
-   testCase_5();
+   //testCase_5();
    /* testCase_6();
     testCase_7();
     testCase_8();
     testCase_9();
     testCase_10();
-
+*/
     // Extra Credit
-    extraTestCase_1();*/
+   // extraTestCase_1();
    // extraTestCase_2();
-/*    extraTestCase_3();
-    extraTestCase_4();*/
+    extraTestCase_3();
+    extraTestCase_4();
 
     return 0;
 }
