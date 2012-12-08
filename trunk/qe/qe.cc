@@ -63,11 +63,13 @@ void getAttributeData(const vector<Attribute> attrs, const string attr, const vo
 			case TypeInt:
 			case TypeReal:
 				memcpy(attrData, (char*) data + offset, 4);
+				return;
 				break;
 			case TypeVarChar:
-				memcpy(&length_var_char, (char*) data + offset, 4);
-				memcpy(attrData, (char*) data + offset, length_var_char + 4);
+				memcpy(&length_var_char, (char*) data +offset, 4);
+				memcpy((char*)attrData, (char*) data +offset, length_var_char+4 );
 				//copy string & length of string
+				return;
 				break;
 			default:
 				cerr << "Error decoding attrs[i]" << endl;
@@ -265,10 +267,10 @@ void Project::getAttributes(vector<Attribute> &projectAttrs) const {
 
 	for (unsigned i = 0; i < this->projectAttrNames.size(); i++) {
 		attr = getAttributeFromName(attrs, projectAttrNames[i]);
+		attr.position = i+1;
 		projectAttrs.push_back(attr);
 	}
-	// Reverse ?
-	//reverse(projectAttrs.begin(), projectAttrs.end());
+
 }
 
 RC Project::getNextTuple(void *data) {
@@ -318,13 +320,17 @@ void NLJoin::getAttributes(vector<Attribute> &attrs) const {
 	//contain all attributes
 	attrs.clear();
 	Attribute attr;
-
+	unsigned count = 0;
 	for (unsigned i = 0; i < this->leftAttrs.size(); i++) {
 		attr = leftAttrs[i];
+		count++;
+		attr.position = count;
 		attrs.push_back(attr);
 	}
 	for (unsigned i = 0; i < this->rightAttrs.size(); i++) {
 		attr = rightAttrs[i];
+		count++;
+		attr.position = count;
 		attrs.push_back(attr);
 	}
 }
@@ -464,13 +470,17 @@ void INLJoin::getAttributes(vector<Attribute> &attrs) const {
 	//contain all attributes
 	attrs.clear();
 	Attribute attr;
-
+	unsigned count = 0;
 	for (unsigned i = 0; i < this->leftAttrs.size(); i++) {
 		attr = leftAttrs[i];
+		count++;
+		attr.position = count;
 		attrs.push_back(attr);
 	}
 	for (unsigned i = 0; i < this->rightAttrs.size(); i++) {
 		attr = rightAttrs[i];
+		count++;
+		attr.position = count;
 		attrs.push_back(attr);
 	}
 
@@ -857,8 +867,6 @@ RC HashJoin::getNextTuple(void *data) {
 			Partition part = rightPartitions[currentPartition];
 			unsigned total = part.totalPages;
 
-
-
 			Attribute theAttribute = getAttributeFromName(rightAttrs, cond.rhsAttr);
 			void * attrData = malloc(100);
 
@@ -944,26 +952,82 @@ RC HashJoin::getNextTuple(void *data) {
 
 void HashJoin::getAttributes(vector<Attribute> &attrs) const {
 	attrs.clear();
+Attribute attr;
+unsigned count =0;
 
 	for (unsigned i = 0; i < this->leftAttrs.size(); i++) {
-		attrs.push_back(leftAttrs[i]);
+		attr = leftAttrs[i];
+		count++;
+		attr.position = count;
+		attrs.push_back(attr);
 	}
 	for (unsigned i = 0; i < this->rightAttrs.size(); i++) {
-		attrs.push_back(rightAttrs[i]);
+		attr = rightAttrs[i];
+				count++;
+				attr.position = count;
+				attrs.push_back(attr);
 	}
 }
 
 Aggregate::~Aggregate() {
 
 	for (map<string, char*>::iterator it = mymap.begin(); it != mymap.end(); ++it) {
-			free((*it).second);
-		}
-		mymap.clear();
+		free((*it).second);
+	}
+	mymap.clear();
 }
 
 void Aggregate::getAttributes(vector<Attribute> &attrs) const {
+
 	attrs.clear();
-	attrs = this->attrs;
+	Attribute att;
+	string operation;
+	switch (op) {
+	case MIN:
+		operation = "MIN";
+		break;
+	case MAX:
+		operation = "MAX";
+		break;
+	case AVG:
+		operation = "AVG";
+		break;
+	case COUNT:
+		operation = "COUNT";
+		break;
+	case SUM:
+		operation = "SUM";
+		break;
+	}
+
+	att.name = operation + "(" + aggAttr.name + ")";
+	att.type = aggAttr.type;
+	att.length = aggAttr.length;
+	att.position = 1;
+	if (numberOfParameter == 3) {
+		attrs.push_back(att);
+
+	} else {
+		att.position = 2;
+		attrs.push_back(att);
+		Attribute att1;
+		att1.name = gAttr.name;
+		att1.type = gAttr.type;
+		att1.length = gAttr.length;
+		att1.position = 1;
+		std::vector<Attribute>::iterator ite;
+		ite = attrs.begin();
+		attrs.insert(ite, att1);
+
+	}
+
+	/*for (unsigned i = 0; i < attrs.size(); i++) {
+	 cout << "NAME = " << attrs[i].name << " ";
+	 cout << "Type = " << attrs[i].type << " ";
+	 cout << "Length = " << attrs[i].length << endl;
+	 cout << "position = " << attrs[i].position << endl;
+
+	 }*/
 }
 
 RC Aggregate::Init(Iterator *input, vector<Attribute> attrs, Attribute aggAtt, float *min, float *max) {
@@ -989,7 +1053,8 @@ RC Aggregate::Init(Iterator *input, vector<Attribute> attrs, Attribute aggAtt, f
 }
 
 RC Aggregate::getNextTuple(void *data) {
-	if (isDone) return QE_EOF;
+	if (isDone)
+		return QE_EOF;
 
 	int rc;
 	float value = 0.0;
@@ -999,61 +1064,57 @@ RC Aggregate::getNextTuple(void *data) {
 		void *temp = malloc(200);
 		void *aggData = malloc(200); //keep data of Attribute
 		while (true) {
-		rc = this->input->getNextTuple(temp);
-		if (rc == RC_SUCCESS)		{
-			getAttributeData(attrs, aggAttr.name, temp, aggData);
-			if (aggAttr.type == TypeInt)
-				value = (float) *(int*) aggData;
-			else if (aggAttr.type == TypeReal)
-				value = *(float*) aggData;
-			else
-				goto fail;
+			rc = this->input->getNextTuple(temp);
+			if (rc == RC_SUCCESS) {
+				getAttributeData(attrs, aggAttr.name, temp, aggData);
+				if (aggAttr.type == TypeInt)
+					value = (float) *(int*) aggData;
+				else if (aggAttr.type == TypeReal)
+					value = *(float*) aggData;
+				else
+					goto fail;
 
-			this->count += 1;
-			this->sum += value;
-			switch (op) {
-			case MIN:
-				if (this->min > value) {
-					this->min = value;
-				}
-				returnValue = min;
-				break;
-			case MAX:
-				if (this->max < value) {
-					this->max = value;
-				}
-				returnValue = max;
-				break;
-			case COUNT:
-				returnValue = (float) count;
-				break;
-			case SUM:
-				returnValue = sum;
-				break;
-			case AVG:
-				returnValue = (float) sum / count;
-				break;
-			default:
-				cerr << "Error Aggredate Operation";
-				goto fail;
+				this->count += 1;
+				this->sum += value;
+				switch (op) {
+				case MIN:
+					if (this->min > value) {
+						this->min = value;
+					}
+					returnValue = min;
+					break;
+				case MAX:
+					if (this->max < value) {
+						this->max = value;
+					}
+					returnValue = max;
+					break;
+				case COUNT:
+					returnValue = (float) count;
+					break;
+				case SUM:
+					returnValue = sum;
+					break;
+				case AVG:
+					returnValue = (float) sum / count;
+					break;
+				default:
+					cerr << "Error Aggredate Operation";
+					goto fail;
 
+				} // end of switch
 
-			} // end of switch
-
-
-		} else {
-			isDone =  true;
-			goto success;
+			} else {
+				isDone = true;
+				goto success;
+			}
 		}
-		}
-		success:
-		memcpy((char*) data, &returnValue, 4);
+		success: memcpy((char*) data, &returnValue, 4);
 		free(temp);
 		free(aggData);
 		return RC_SUCCESS;
 
-		fail:
-		free(temp);
+		fail: free(temp);
 		free(aggData);
 		return RC_FAIL;
 
@@ -1069,15 +1130,13 @@ RC Aggregate::getNextTuple(void *data) {
 		if (gAttr.type == TypeVarChar) {
 			length = first.length();
 			memcpy((char*) data, &length, 4);
-			memcpy((char*) data +length, first.c_str(),length);
+			memcpy((char*) data + 4, first.c_str(), length);
 			length += 4;
-		}
-		else if (gAttr.type == TypeInt) {
-			int intFirst = ::strtod(first.c_str(),0);
+		} else if (gAttr.type == TypeInt) {
+			int intFirst = ::strtod(first.c_str(), 0);
 			memcpy((char*) data, &intFirst, 4);
-		}
-		else if (gAttr.type == TypeReal) {
-			float floatFirst = ::strtod(first.c_str(),0);
+		} else if (gAttr.type == TypeReal) {
+			float floatFirst = ::strtod(first.c_str(), 0);
 			memcpy((char*) data, &floatFirst, 4);
 		}
 		memcpy((char*) data + length, second, 4);
@@ -1097,13 +1156,14 @@ RC Aggregate::createMap() {
 
 	float value;
 
-
 	string aValue;
 	unsigned count = 0;
 
 	while (true) {
 		int rc = this->input->getNextTuple(temp);
-		if (rc == RC_FAIL) goto fail;
+		if (rc == RC_FAIL
+		)
+			goto fail;
 		getAttributeData(attrs, aggAttr.name, temp, aggData);
 		if (aggAttr.type == TypeInt)
 			value = (float) *(int*) aggData;
@@ -1117,18 +1177,25 @@ RC Aggregate::createMap() {
 		float val;
 		string gValue;
 		if (gAttr.type != TypeVarChar) {
-		if (gAttr.type == TypeInt)
-			val = (float) *(int*) gData;
-		else if (gAttr.type == TypeReal)
-			val = *(float*) gData;
+			if (gAttr.type == TypeInt)
+				val = (float) *(int*) gData;
+			else if (gAttr.type == TypeReal)
+				val = *(float*) gData;
 
-		gValue = static_cast<ostringstream*>(&(ostringstream() << val))->str();
-		}
-		else {
+			gValue = static_cast<ostringstream*>(&(ostringstream() << val))->str();
+		} else {
 			// not tested yet!
+
 			unsigned length;
 			memcpy(&length, (char*) gData, 4);
-			memcpy((char*)gValue.c_str(), (char*)gData, length);
+			char* tempChar = (char*)malloc (length+4);
+
+			memcpy(tempChar, (char*) gData+4, length);
+			//tempChar[length] = '\0';
+			//memcpy((char*)gValue.c_str(),(char*)gData +4, length);
+			gValue = string(tempChar);
+			gValue[length]='\0';
+
 		}
 
 		it = mymap.find(gValue);
@@ -1137,32 +1204,35 @@ RC Aggregate::createMap() {
 			// not existed yet
 			char *test = NULL;
 
-			if (op == AVG)  {
+			if (op == AVG) {
 				test = (char*) malloc(8);
-			}
-			else {
+			} else {
 				test = (char*) malloc(4);
 			}
 
 			if (aggAttr.type == TypeInt || aggAttr.type == TypeReal) {
-				memcpy(test, &value, 4);
+				if (op == COUNT) {
+					float oneFloat = 1.0;
+					memcpy(test, &oneFloat, 4);
+				} else {
+					memcpy(test, &value, 4);
 
-				if (op == AVG) {
-						unsigned zero = 0;
-						memcpy((char*)test+4, (char*)&zero, 4);
+					if (op == AVG) {
+						unsigned one = 1;
+						memcpy((char*) test + 4, (char*) &one, 4);
+					}
 				}
-
-			}
-			else  goto fail;
+			} else
+				goto fail;
 
 			mymap.insert(pair<string, char*>(gValue, test));
 
 		} else {
 			//co roi cap nhat lai so luong
 
-			char*  secondValue = (*it).second;
+			char* secondValue = (*it).second;
 			float second;
-			memcpy(&second,secondValue, 4);
+			memcpy(&second, secondValue, 4);
 			switch (op) {
 			case MIN:
 				if (second > value)
@@ -1179,7 +1249,7 @@ RC Aggregate::createMap() {
 				second += value;
 				break;
 			case AVG:
-				memcpy(&count, (char*)secondValue+4, 4);
+				memcpy(&count, (char*) secondValue + 4, 4);
 				count++;
 				second += (value - second) / count;
 				break;
@@ -1188,26 +1258,23 @@ RC Aggregate::createMap() {
 				goto fail;
 
 			} //het switch
-			memcpy((char*)secondValue,&second, 4);
+			memcpy((char*) secondValue, &second, 4);
 			if (op == AVG) {
-				memcpy((char*)secondValue+4,&count, 4);
+				memcpy((char*) secondValue + 4, &count, 4);
 
 			}
 
 			//(*it).second = secondValue;
 		}
-	} //het while
-	//in ra ket qua, bay gio ta da co multimap
+	} //end of while
 
 	//}//het 2 kieu int
 	goto success;
 
-	success:
-	free(temp);
+	success: free(temp);
 	free(aggData);
 	free(gData);
 	return RC_SUCCESS;
-
 
 	fail: free(temp);
 	free(aggData);
