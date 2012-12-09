@@ -1196,6 +1196,7 @@ RC Aggregate::createMap() {
 			gValue = string(tempChar);
 			gValue[length]='\0';
 
+
 		}
 
 		it = mymap.find(gValue);

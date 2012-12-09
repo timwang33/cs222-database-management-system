@@ -15,9 +15,9 @@ IX_Manager *ixManager = IX_Manager::Instance();
 const int success = 0;
 
 // Number of tuples in each relation
-const int tuplecount = 20;
+const int tuplecount = 1000;
 
-// Buffer size and character buffer si
+// Buffer size and character buffer size
 const unsigned bufsize = 200;
 
 
@@ -50,7 +50,7 @@ void createLeftTable()
     cout << "****Left Table Created!****" << endl;
 }
 
-
+   
 void createRightTable()
 {
     // Functions Tested;
@@ -81,19 +81,17 @@ void createRightTable()
 }
 
 
-
-
 // Prepare the tuple to left table in the format conforming to Insert/Update/ReadTuple and readAttribute
 void prepareLeftTuple(const int a, const int b, const float c, void *buf)
-{
+{    
     int offset = 0;
-
+    
     memcpy((char *)buf + offset, &a, sizeof(int));
     offset += sizeof(int);
-
+    
     memcpy((char *)buf + offset, &b, sizeof(int));
     offset += sizeof(int);
-
+    
     memcpy((char *)buf + offset, &c, sizeof(float));
     offset += sizeof(float);
 }
@@ -103,13 +101,13 @@ void prepareLeftTuple(const int a, const int b, const float c, void *buf)
 void prepareRightTuple(const int b, const float c, const int d, void *buf)
 {
     int offset = 0;
-
+    
     memcpy((char *)buf + offset, &b, sizeof(int));
     offset += sizeof(int);
-
+    
     memcpy((char *)buf + offset, &c, sizeof(float));
     offset += sizeof(float);
-
+    
     memcpy((char *)buf + offset, &d, sizeof(int));
     offset += sizeof(int);
 }
@@ -122,37 +120,22 @@ void populateLeftTable(vector<RID> &rids)
     RID rid;
     void *buf = malloc(bufsize);
     for(int i = 0; i < tuplecount; ++i)
+
     {
         memset(buf, 0, bufsize);
-
+        
         // Prepare the tuple data for insertion
         // a in [0,99], b in [10, 109], c in [50, 149.0]
         int a = i;
         int b = i + 10;
         float c = (float)(i + 50);
         prepareLeftTuple(a, b, c, buf);
-
+        
         RC rc = rm->insertTuple("left", buf, rid);
         assert(rc == success);
         rids.push_back(rid);
     }
-    for(int i = tuplecount -10; i < tuplecount; ++i)
-      {
-            memset(buf, 0, bufsize);
-
-            // Prepare the tuple data for insertion
-            // a in [0,99], b in [10, 109], c in [50, 149.0]
-            int a = i;
-            int b = 2*i + 10;
-            float c = (float)(i + 50);
-            prepareLeftTuple(a, b, c, buf);
-
-            RC rc = rm->insertTuple("left", buf, rid);
-            assert(rc == success);
-            rids.push_back(rid);
-        }
-
-
+    
     free(buf);
 }
 
@@ -167,34 +150,19 @@ void populateRightTable(vector<RID> &rids)
     for(int i = 0; i < tuplecount; ++i)
     {
         memset(buf, 0, bufsize);
-
+        
         // Prepare the tuple data for insertion
         // b in [20, 120], c in [25, 124.0], d in [0, 99]
         int b = i + 20;
         float c = (float)(i + 25);
         int d = i;
         prepareRightTuple(b, c, d, buf);
-
+        
         RC rc = rm->insertTuple("right", buf, rid);
         assert(rc == success);
         rids.push_back(rid);
     }
-    for(int i = tuplecount -5; i < tuplecount; ++i)
 
-    	    {
-    	        memset(buf, 0, bufsize);
-
-    	        // Prepare the tuple data for insertion
-    	        // b in [20, 120], c in [25, 124.0], d in [0, 99]
-    	        int b = 2*i + 20;
-    	        float c = (float)(i + 25);
-    	        int d = i;
-    	        prepareRightTuple(b, c, d, buf);
-
-    	        RC rc = rm->insertTuple("right", buf, rid);
-    	        assert(rc == success);
-    	        rids.push_back(rid);
-    	    }
     free(buf);
 }
 
@@ -205,25 +173,25 @@ void createIndexforLeftB(vector<RID> &rids)
     // Create Index
     rc = ixManager->CreateIndex("left", "B");
     assert(rc == success);
-
+    
     // Open Index
     IX_IndexHandle ixHandle;
     rc = ixManager->OpenIndex("left", "B", ixHandle);
     assert(rc == success);
-
+    
     // Insert Entry
     for(int i = 0; i < tuplecount; ++i)
     {
         // key in [10, 109]
         int key = i + 10;
-
+              
         rc = ixHandle.InsertEntry(&key, rids[i]);
         assert(rc == success);
     }
-
+    
     // Close Index
     rc = ixManager->CloseIndex(ixHandle);
-    assert(rc == success);
+    assert(rc == success);    
 }
 
 
@@ -233,22 +201,22 @@ void createIndexforLeftC(vector<RID> &rids)
     // Create Index
     rc = ixManager->CreateIndex("left", "C");
     assert(rc == success);
-
+    
     // Open Index
     IX_IndexHandle ixHandle;
     rc = ixManager->OpenIndex("left", "C", ixHandle);
     assert(rc == success);
-
+    
     // Insert Entry
     for(int i = 0; i < tuplecount; ++i)
     {
         // key in [50, 149.0]
         float key = (float)(i + 50);
-
+        
         rc = ixHandle.InsertEntry(&key, rids[i]);
         assert(rc == success);
     }
-
+    
     // Close Index
     rc = ixManager->CloseIndex(ixHandle);
     assert(rc == success);
@@ -261,25 +229,25 @@ void createIndexforRightB(vector<RID> &rids)
     // Create Index
     rc = ixManager->CreateIndex("right", "B");
     assert(rc == success);
-
+    
     // Open Index
     IX_IndexHandle ixHandle;
     rc = ixManager->OpenIndex("right", "B", ixHandle);
     assert(rc == success);
-
+    
     // Insert Entry
     for(int i = 0; i < tuplecount; ++i)
     {
         // key in [20, 120]
         int key = i + 20;
-
+              
         rc = ixHandle.InsertEntry(&key, rids[i]);
         assert(rc == success);
     }
-
+    
     // Close Index
     rc = ixManager->CloseIndex(ixHandle);
-    assert(rc == success);
+    assert(rc == success);    
 }
 
 
@@ -289,23 +257,23 @@ void createIndexforRightC(vector<RID> &rids)
     // Create Index
     rc = ixManager->CreateIndex("right", "C");
     assert(rc == success);
-
+    
     // Open Index
     IX_IndexHandle ixHandle;
     rc = ixManager->OpenIndex("right", "C", ixHandle);
     assert(rc == success);
-
+    
     // Insert Entry
     for(int i = 0; i < tuplecount; ++i)
     {
         // key in [25, 124]
         float key = (float)(i + 25);
-
+        
         // Insert the key into index
         rc = ixHandle.InsertEntry(&key, rids[i]);
         assert(rc == success);
     }
-
+    
     // Close Index
     rc = ixManager->CloseIndex(ixHandle);
     assert(rc == success);
@@ -317,9 +285,9 @@ void testCase_1()
     // Functions Tested;
     // 1. Filter -- TableScan as input, on Integer Attribute
     cout << "****In Test Case 1****" << endl;
-
+    
     TableScan *ts = new TableScan(*rm, "left");
-
+    
     // Set up condition
     Condition cond;
     cond.lhsAttr = "left.B";
@@ -328,33 +296,34 @@ void testCase_1()
     Value value;
     value.type = TypeInt;
     value.data = malloc(bufsize);
-    *(int *)value.data = 5000;//35;
+    *(int *)value.data = 25;
     cond.rhsValue = value;
-
-    // Create Filter
+    
+    // Create Filter 
     Filter filter(ts, cond);
-
+    
     // Go over the data through iterator
     void *data = malloc(bufsize);
+    unsigned totals = 0;
     while(filter.getNextTuple(data) != QE_EOF)
     {
         int offset = 0;
-        // Print left.A
+        /*// Print left.A
         cout << "left.A " << *(int *)((char *)data + offset) << endl;
         offset += sizeof(int);
-
+        
         // Print left.B
         cout << "left.B " << *(int *)((char *)data + offset) << endl;
         offset += sizeof(int);
-
+        
         // Print left.C
         cout << "left.C " << *(float *)((char *)data + offset) << endl;
-        offset += sizeof(float);
-
+        offset += sizeof(float);*/
+        totals++;
         memset(data, 0, bufsize);
     }
-
-    free(value.data);
+   cout << totals << endl;
+    free(value.data); 
     free(data);
     return;
 }
@@ -365,46 +334,47 @@ void testCase_2()
     // Functions Tested
     // 1. Filter -- IndexScan as input, on TypeReal attribute
     cout << "****In Test Case 2****" << endl;
-
+    
     IX_IndexHandle ixHandle;
     ixManager->OpenIndex("right", "C", ixHandle);
     IndexScan *is = new IndexScan(*rm, ixHandle, "right");
-
+    
     // Set up condition
     Condition cond;
     cond.lhsAttr = "right.C";
-    cond.op = NO_OP;
+    cond.op = GE_OP;
     cond.bRhsIsAttr = false;
     Value value;
     value.type = TypeReal;
     value.data = malloc(bufsize);
-    *(float *)value.data = 10.0;
+    *(float *)value.data = 100.0;
     cond.rhsValue = value;
-
+    
     // Create Filter
     is->setIterator(GE_OP, value.data);
     Filter filter(is, cond);
-
+    
     // Go over the data through iterator
     void *data = malloc(bufsize);
+    unsigned totals =0;
     while(filter.getNextTuple(data) != QE_EOF)
     {
-        int offset = 0;
+       /* int offset = 0;
         // Print right.B
         cout << "right.B " << *(int *)((char *)data + offset) << endl;
         offset += sizeof(int);
-
+        
         // Print right.C
         cout << "right.C " << *(float *)((char *)data + offset) << endl;
         offset += sizeof(float);
-
+        
         // Print right.D
         cout << "right.D " << *(int *)((char *)data + offset) << endl;
-        offset += sizeof(int);
-
+        offset += sizeof(int);*/
+        totals++;
         memset(data, 0, bufsize);
     }
-
+cout << totals << endl;
     ixManager->CloseIndex(ixHandle);
     free(value.data);
     free(data);
@@ -415,35 +385,36 @@ void testCase_2()
 void testCase_3()
 {
     // Functions Tested
-    // 1. Project -- TableScan as input
+    // 1. Project -- TableScan as input  
     cout << "****In Test Case 3****" << endl;
-
+    
     TableScan *ts = new TableScan(*rm, "right");
-
+    
     vector<string> attrNames;
     attrNames.push_back("right.C");
     attrNames.push_back("right.D");
-
-    // Create Projector
+    
+    // Create Projector 
     Project project(ts, attrNames);
-
+    
     // Go over the data through iterator
     void *data = malloc(bufsize);
+    unsigned totals= 0;
     while(project.getNextTuple(data) != QE_EOF)
     {
-        int offset = 0;
-
+        /*int offset = 0;
+ 
         // Print right.C
-        cout << "right.C " << *(float *)((char *)data + offset) << endl;
+        cout << "left.C " << *(float *)((char *)data + offset) << endl;
         offset += sizeof(float);
-
+        
         // Print right.D
         cout << "right.D " << *(int *)((char *)data + offset) << endl;
-        offset += sizeof(int);
-
+        offset += sizeof(int);*/
+        totals ++;
         memset(data, 0, bufsize);
     }
-
+    cout << totals << endl;
     free(data);
     return;
 }
@@ -454,93 +425,54 @@ void testCase_4()
     // Functions Tested
     // 1. NLJoin -- on TypeInt Attribute
     cout << "****In Test Case 4****" << endl;
-
+    
     // Prepare the iterator and condition
     TableScan *leftIn = new TableScan(*rm, "left");
     TableScan *rightIn = new TableScan(*rm, "right");
-
-    Condition cond1;
-        cond1.lhsAttr = "right.B";
-        cond1.op = NO_OP;
-        cond1.bRhsIsAttr = false;
-        Value value;
-        value.type = TypeInt;
-        value.data = malloc(bufsize);
-        *(int *)value.data = 35;
-        cond1.rhsValue = value;
-
-        // Create Filter
-        Filter filter(rightIn, cond1);
-int cnt =0;
-        void *data = malloc(bufsize);
-            while(filter.getNextTuple(data) != QE_EOF)
-            {
-            	cnt ++;/*
-                int offset = 0;
-                // Print left.A
-                cout << "left.A " << *(int *)((char *)data + offset) << endl;
-                offset += sizeof(int);
-
-                // Print left.B
-                cout << "left.B " << *(int *)((char *)data + offset) << endl;
-                offset += sizeof(int);
-
-                // Print left.C
-                cout << "left.C " << *(float *)((char *)data + offset) << endl;
-                offset += sizeof(float);
-*/
-                memset(data, 0, bufsize);
-            }
-cout << "ALL RIGHT = " << cnt << endl;
-            free(value.data);
-            free(data);
+    
     Condition cond;
     cond.lhsAttr = "left.B";
     cond.op= EQ_OP;
     cond.bRhsIsAttr = true;
     cond.rhsAttr = "right.B";
-
+    
     // Create NLJoin
     NLJoin nljoin(leftIn, rightIn, cond, 10);
-
+        
     // Go over the data through iterator
-    data = malloc(bufsize);
-    int count =0;
+    void *data = malloc(bufsize);
+    unsigned totals=0;
     while(nljoin.getNextTuple(data) != QE_EOF)
     {
-    	count++;
-    	//cerr <<count << endl;
-    	//if (count == 494)
-    		//cout << count << endl;
-        int offset = 0;
-
+        /*int offset = 0;
+ 
         // Print left.A
         cout << "left.A " << *(int *)((char *)data + offset) << endl;
         offset += sizeof(int);
-
+        
         // Print left.B
         cout << "left.B " << *(int *)((char *)data + offset) << endl;
         offset += sizeof(int);
-
+ 
         // Print left.C
         cout << "left.C " << *(float *)((char *)data + offset) << endl;
         offset += sizeof(float);
-
+        
         // Print right.B
         cout << "right.B " << *(int *)((char *)data + offset) << endl;
         offset += sizeof(int);
-
+ 
         // Print right.C
         cout << "right.C " << *(float *)((char *)data + offset) << endl;
         offset += sizeof(float);
-
+        
         // Print right.D
         cout << "right.D " << *(int *)((char *)data + offset) << endl;
-        offset += sizeof(int);
-
+        offset += sizeof(int);*/
+        totals++;
         memset(data, 0, bufsize);
     }
-cout << "total " << count << endl;
+    cout << totals << endl;
     free(data);
     return;
 }
@@ -551,37 +483,38 @@ void testCase_5()
     // Functions Tested
     // 1. INLJoin -- on TypeReal Attribute
     cout << "****In Test Case 5****" << endl;
-
+    
     // Prepare the iterator and condition
     TableScan *leftIn = new TableScan(*rm, "left");
-
+    
     IX_IndexHandle ixRightHandle;
     ixManager->OpenIndex("right", "C", ixRightHandle);
     IndexScan *rightIn = new IndexScan(*rm, ixRightHandle, "right");
-
+    
     Condition cond;
     cond.lhsAttr = "left.C";
-    cond.op = LE_OP;
+    cond.op = EQ_OP;
     cond.bRhsIsAttr = true;
     cond.rhsAttr = "right.C";
-
+    
     // Create INLJoin
     INLJoin inljoin(leftIn, rightIn, cond, 10);
-
+        
     // Go over the data through iterator
     void *data = malloc(bufsize);
+    unsigned totals =0;
     while(inljoin.getNextTuple(data) != QE_EOF)
     {
-        int offset = 0;
-
+        /*int offset = 0;
+ 
         // Print left.A
         cout << "left.A " << *(int *)((char *)data + offset) << endl;
         offset += sizeof(int);
-
+        
         // Print left.B
         cout << "left.B " << *(int *)((char *)data + offset) << endl;
         offset += sizeof(int);
-
+ 
         // Print left.C
         cout << "left.C " << *(float *)((char *)data + offset) << endl;
         offset += sizeof(float);
@@ -589,19 +522,19 @@ void testCase_5()
         // Print right.B
         cout << "right.B " << *(int *)((char *)data + offset) << endl;
         offset += sizeof(int);
-
+ 
         // Print right.C
         cout << "right.C " << *(float *)((char *)data + offset) << endl;
         offset += sizeof(float);
-
+        
         // Print right.D
-        cout << "right.D " << *(int *)((char *)data + offset) << endl<< endl;
-        offset += sizeof(int);
-
+        cout << "right.D " << *(int *)((char *)data + offset) << endl;
+        offset += sizeof(int);*/
+        totals++;
         memset(data, 0, bufsize);
     }
-
-    ixManager->CloseIndex(ixRightHandle);
+   cout << totals << endl;
+    ixManager->CloseIndex(ixRightHandle); 
     free(data);
     return;
 }
@@ -612,53 +545,54 @@ void testCase_6()
     // Functions Tested
     // 1. HashJoin -- on TypeInt Attribute
     cout << "****In Test Case 6****" << endl;
-
+    
     // Prepare the iterator and condition
     TableScan *leftIn = new TableScan(*rm, "left");
     TableScan *rightIn = new TableScan(*rm, "right");
-
+    
     Condition cond;
     cond.lhsAttr = "left.B";
     cond.op = EQ_OP;
     cond.bRhsIsAttr = true;
     cond.rhsAttr = "right.B";
-
+    
     // Create HashJoin
     HashJoin hashjoin(leftIn, rightIn, cond, 5);
-
+        
     // Go over the data through iterator
     void *data = malloc(bufsize);
+    unsigned totals =0;
     while(hashjoin.getNextTuple(data) != QE_EOF)
     {
-        int offset = 0;
-
+        /*int offset = 0;
+ 
         // Print left.A
         cout << "left.A " << *(int *)((char *)data + offset) << endl;
         offset += sizeof(int);
-
+        
         // Print left.B
         cout << "left.B " << *(int *)((char *)data + offset) << endl;
         offset += sizeof(int);
-
+ 
         // Print left.C
         cout << "left.C " << *(float *)((char *)data + offset) << endl;
         offset += sizeof(float);
-
+        
         // Print right.B
         cout << "right.B " << *(int *)((char *)data + offset) << endl;
         offset += sizeof(int);
-
+ 
         // Print right.C
         cout << "right.C " << *(float *)((char *)data + offset) << endl;
         offset += sizeof(float);
-
+        
         // Print right.D
         cout << "right.D " << *(int *)((char *)data + offset) << endl;
-        offset += sizeof(int);
-
+        offset += sizeof(int);*/
+        totals ++;
         memset(data, 0, bufsize);
     }
-
+   cout << totals << endl;
     free(data);
     return;
 }
@@ -670,23 +604,23 @@ void testCase_7()
     // 1. INLJoin -- on TypeInt Attribute
     // 2. Filter -- on TypeInt Attribute
     cout << "****In Test Case 7****" << endl;
-
+    
     // Prepare the iterator and condition
     TableScan *leftIn = new TableScan(*rm, "left");
-
+    
     IX_IndexHandle ixHandle;
     ixManager->OpenIndex("right", "B", ixHandle);
     IndexScan *rightIn = new IndexScan(*rm, ixHandle, "right");
-
+    
     Condition cond_j;
     cond_j.lhsAttr = "left.B";
     cond_j.op = EQ_OP;
     cond_j.bRhsIsAttr = true;
     cond_j.rhsAttr = "right.B";
-
+    
     // Create INLJoin
     INLJoin *inljoin = new INLJoin(leftIn, rightIn, cond_j, 5);
-
+    
     // Create Filter
     Condition cond_f;
     cond_f.lhsAttr = "right.B";
@@ -697,44 +631,45 @@ void testCase_7()
     value.data = malloc(bufsize);
     *(int *)value.data = 50;
     cond_f.rhsValue = value;
-
+    
     Filter filter(inljoin, cond_f);
-
+            
     // Go over the data through iterator
     void *data = malloc(bufsize);
+    unsigned totals =0;
     while(filter.getNextTuple(data) != QE_EOF)
     {
-        int offset = 0;
-
+        /*int offset = 0;
+ 
         // Print left.A
         cout << "left.A " << *(int *)((char *)data + offset) << endl;
         offset += sizeof(int);
-
+        
         // Print left.B
         cout << "left.B " << *(int *)((char *)data + offset) << endl;
         offset += sizeof(int);
-
+ 
         // Print left.C
         cout << "left.C " << *(float *)((char *)data + offset) << endl;
         offset += sizeof(float);
-
+    
         // Print right.B
         cout << "right.B " << *(int *)((char *)data + offset) << endl;
         offset += sizeof(int);
-
+ 
         // Print right.C
         cout << "right.C " << *(float *)((char *)data + offset) << endl;
         offset += sizeof(float);
-
+         
         // Print right.D
         cout << "right.D " << *(int *)((char *)data + offset) << endl;
-        offset += sizeof(int);
-
+        offset += sizeof(int);*/
+        totals ++;
         memset(data, 0, bufsize);
     }
-
-    ixManager->CloseIndex(ixHandle);
-    free(value.data);
+   cout << totals << endl;
+    ixManager->CloseIndex(ixHandle); 
+    free(value.data); 
     free(data);
     return;
 }
@@ -746,44 +681,45 @@ void testCase_8()
     // 1. HashJoin -- on TypeReal Attribute
     // 2. Project
     cout << "****In Test Case 8****" << endl;
-
+    
     // Prepare the iterator and condition
     TableScan *leftIn = new TableScan(*rm, "left");
     TableScan *rightIn = new TableScan(*rm, "right");
-
+    
     Condition cond_j;
     cond_j.lhsAttr = "left.C";
     cond_j.op = EQ_OP;
     cond_j.bRhsIsAttr = true;
     cond_j.rhsAttr = "right.C";
-
+    
     // Create HashJoin
     HashJoin *hashjoin = new HashJoin(leftIn, rightIn, cond_j, 10);
-
+    
     // Create Projector
     vector<string> attrNames;
     attrNames.push_back("left.A");
     attrNames.push_back("right.D");
-
+    
     Project project(hashjoin, attrNames);
-
+        
     // Go over the data through iterator
     void *data = malloc(bufsize);
+    unsigned totals =0;
     while(project.getNextTuple(data) != QE_EOF)
     {
-        int offset = 0;
-
+        /*int offset = 0;
+ 
         // Print left.A
         cout << "left.A " << *(int *)((char *)data + offset) << endl;
         offset += sizeof(int);
-
+                
         // Print right.D
         cout << "right.D " << *(int *)((char *)data + offset) << endl;
-        offset += sizeof(int);
-
+        offset += sizeof(int);*/
+        totals ++;
         memset(data, 0, bufsize);
     }
-
+   cout << totals << endl;
     free(data);
     return;
 }
@@ -794,22 +730,22 @@ void testCase_9()
     // Functions Tested
     // 1. NLJoin -- on TypeFloat Attribute
     // 2. HashJoin -- on TypeInt Attribute
-
+    
     cout << "****In Test Case 9****" << endl;
-
+    
     // Prepare the iterator and condition
     TableScan *leftIn = new TableScan(*rm, "left");
     TableScan *rightIn = new TableScan(*rm, "right");
-
+    
     Condition cond;
     cond.lhsAttr = "left.C";
     cond.op = EQ_OP;
     cond.bRhsIsAttr = true;
     cond.rhsAttr = "right.C";
-
+    
     // Create NLJoin
     NLJoin *nljoin = new NLJoin(leftIn, rightIn, cond, 10);
-
+    
     // Create HashJoin
     TableScan *thirdIn = new TableScan(*rm, "left", "leftSecond");
     Condition cond_h;
@@ -818,52 +754,53 @@ void testCase_9()
     cond_h.bRhsIsAttr = true;
     cond_h.rhsAttr = "leftSecond.B";
     HashJoin hashjoin(nljoin, thirdIn, cond_h, 8);
-
+        
     // Go over the data through iterator
     void *data = malloc(bufsize);
+    unsigned totals =0;
     while(hashjoin.getNextTuple(data) != QE_EOF)
     {
-        int offset = 0;
-
+        /*int offset = 0;
+ 
         // Print left.A
         cout << "left.A " << *(int *)((char *)data + offset) << endl;
         offset += sizeof(int);
-
+        
         // Print left.B
         cout << "left.B " << *(int *)((char *)data + offset) << endl;
         offset += sizeof(int);
-
+ 
         // Print left.C
         cout << "left.C " << *(float *)((char *)data + offset) << endl;
         offset += sizeof(float);
-
+        
         // Print right.B
         cout << "right.B " << *(int *)((char *)data + offset) << endl;
         offset += sizeof(int);
-
+ 
         // Print right.C
         cout << "right.C " << *(float *)((char *)data + offset) << endl;
         offset += sizeof(float);
-
+        
         // Print right.D
         cout << "right.D " << *(int *)((char *)data + offset) << endl;
         offset += sizeof(int);
-
+        
         // Print leftSecond.A
         cout << "leftSecond.A " << *(int *)((char *)data + offset) << endl;
         offset += sizeof(int);
-
+        
         // Print left.B
         cout << "leftSecond.B " << *(int *)((char *)data + offset) << endl;
         offset += sizeof(int);
-
+ 
         // Print leftSecond.C
         cout << "leftSecond.C " << *(float *)((char *)data + offset) << endl;
-        offset += sizeof(float);
-
+        offset += sizeof(float);*/
+        totals++;
         memset(data, 0, bufsize);
     }
-
+   cout << totals << endl;
     free(data);
     return;
 }
@@ -872,10 +809,10 @@ void testCase_9()
 void testCase_10()
 {
     // Functions Tested
-    // 1. Filter
+    // 1. Filter  
     // 2. Project
     // 3. INLJoin
-
+    
     cout << "****In Test Case 10****" << endl;
 
     // Create Filter
@@ -892,8 +829,8 @@ void testCase_10()
     value.data = malloc(bufsize);
     *(int *)value.data = 75;
     cond_f.rhsValue = value;
-
-    leftIn->setIterator(LT_OP, value.data);
+   
+    leftIn->setIterator(LT_OP, value.data); 
     Filter *filter = new Filter(leftIn, cond_f);
 
     // Create Projector
@@ -901,7 +838,7 @@ void testCase_10()
     attrNames.push_back("left.A");
     attrNames.push_back("left.C");
     Project *project = new Project(filter, attrNames);
-
+    
     // Create INLJoin
     IX_IndexHandle ixRightHandle;
     ixManager->OpenIndex("right", "C", ixRightHandle);
@@ -912,38 +849,39 @@ void testCase_10()
     cond_j.op = EQ_OP;
     cond_j.bRhsIsAttr = true;
     cond_j.rhsAttr = "right.C";
-
-    INLJoin inljoin(project, rightIn, cond_j, 8);
-
+    
+    INLJoin inljoin(project, rightIn, cond_j, 8); 
+    
     // Go over the data through iterator
     void *data = malloc(bufsize);
+    unsigned totals =0;
     while(inljoin.getNextTuple(data) != QE_EOF)
     {
-        int offset = 0;
-
+        /*int offset = 0;
+ 
         // Print left.A
         cout << "left.A " << *(int *)((char *)data + offset) << endl;
         offset += sizeof(int);
-
+        
         // Print left.C
         cout << "left.C " << *(float *)((char *)data + offset) << endl;
         offset += sizeof(float);
-
+        
         // Print right.B
         cout << "right.B " << *(int *)((char *)data + offset) << endl;
         offset += sizeof(int);
-
+ 
         // Print right.C
         cout << "right.C " << *(float *)((char *)data + offset) << endl;
         offset += sizeof(float);
-
+        
         // Print right.D
         cout << "right.D " << *(int *)((char *)data + offset) << endl;
-        offset += sizeof(int);
-
+        offset += sizeof(int);*/
+        totals++;
         memset(data, 0, bufsize);
     }
-
+cout << totals << endl;
     ixManager->CloseIndex(ixLeftHandle);
     ixManager->CloseIndex(ixRightHandle);
     free(value.data);
@@ -958,24 +896,24 @@ void extraTestCase_1()
     // 1. TableScan
     // 2. Aggregate -- MAX
     cout << "****In Extra Test Case 1****" << endl;
-
+    
     // Create TableScan
     TableScan *input = new TableScan(*rm, "left");
-
+    
     // Create Aggregate
     Attribute aggAttr;
     aggAttr.name = "left.B";
     aggAttr.type = TypeInt;
-    aggAttr.length = 4;
+    aggAttr.length = 4;   
     Aggregate agg(input, aggAttr, MAX);
-
+    
     void *data = malloc(bufsize);
     while(agg.getNextTuple(data) != QE_EOF)
     {
         cout << "MAX(left.B) " << *(float *)data << endl;
         memset(data, 0, sizeof(float));
     }
-
+    
     free(data);
     return;
 }
@@ -987,30 +925,24 @@ void extraTestCase_2()
     // 1. TableScan
     // 2. Aggregate -- AVG
     cout << "****In Extra Test Case 2****" << endl;
-
+    
     // Create TableScan
-    //TableScan *input = new TableScan(*rm, "right");
-    IX_IndexHandle ixHandle;
-        ixManager->OpenIndex("right", "B", ixHandle);
-        IndexScan *input = new IndexScan(*rm, ixHandle, "right");
-    //IndexScan *input = new IndexScan(*rm, "right");
-        int val = 31;
-        input->setIterator(NO_OP, NULL);
+    TableScan *input = new TableScan(*rm, "right");
+    
     // Create Aggregate
     Attribute aggAttr;
     aggAttr.name = "right.B";
     aggAttr.type = TypeInt;
-    aggAttr.length = 4;
+    aggAttr.length = 4;   
     Aggregate agg(input, aggAttr, AVG);
-    vector<Attribute> test;
-agg.getAttributes(test);
+    
     void *data = malloc(bufsize);
     while(agg.getNextTuple(data) != QE_EOF)
     {
         cout << "AVG(right.B) " << *(float *)data << endl;
         memset(data, 0, sizeof(float));
     }
-
+    
     free(data);
     return;
 }
@@ -1022,10 +954,10 @@ void extraTestCase_3()
     // 1. TableScan
     // 2. Aggregate -- MIN
     cout << "****In Extra Test Case 3****" << endl;
-
+    
     // Create TableScan
     TableScan *input = new TableScan(*rm, "left");
-
+    
     // Create Aggregate
     Attribute aggAttr;
     aggAttr.name = "left.B";
@@ -1036,24 +968,26 @@ void extraTestCase_3()
     gAttr.name = "left.C";
     gAttr.type = TypeReal;
     gAttr.length = 4;
-    Aggregate agg(input, aggAttr, gAttr, SUM);// MIN);
-
+    Aggregate agg(input, aggAttr, gAttr, MIN);
+    
     void *data = malloc(bufsize);
+    unsigned totals =0;
     while(agg.getNextTuple(data) != QE_EOF)
-    {
-        int offset = 0;
 
+    {
+        /*int offset = 0;
+        
         // Print left.C
         cout << "left.C " << *(float *)((char *)data + offset) << endl;
         offset += sizeof(float);
 
         // Print left.B
-        cout << "SUM(left.B) " << *(float *)((char *)data + offset) << endl;
-        offset += sizeof(int);
-
+        cout << "MIN(left.B) " << *(float *)((char *)data + offset) << endl;
+        offset += sizeof(int);*/
+    	totals++;
         memset(data, 0, bufsize);
     }
-
+    cout << totals << endl;
     free(data);
     return;
 }
@@ -1065,10 +999,10 @@ void extraTestCase_4()
     // 1. TableScan
     // 2. Aggregate -- SUM
     cout << "****In Extra Test Case 4****" << endl;
-
+    
     // Create TableScan
     TableScan *input = new TableScan(*rm, "right");
-
+    
     // Create Aggregate
     Attribute aggAttr;
     aggAttr.name = "right.B";
@@ -1079,269 +1013,67 @@ void extraTestCase_4()
     gAttr.name = "right.C";
     gAttr.type = TypeReal;
     gAttr.length = 4;
-    Aggregate agg(input, aggAttr, gAttr, AVG);
-    vector<Attribute> test;
-    agg.getAttributes(test);
+    Aggregate agg(input, aggAttr, gAttr, SUM);
+    
     void *data = malloc(bufsize);
     while(agg.getNextTuple(data) != QE_EOF)
     {
         int offset = 0;
-
+        
         // Print right.C
         cout << "right.C " << *(float *)((char *)data + offset) << endl;
         offset += sizeof(float);
-
+        
         // Print right.B
         cout << "SUM(right.B) " << *(float *)((char *)data + offset) << endl;
         offset += sizeof(int);
 
         memset(data, 0, bufsize);
     }
-
-    free(data);
-    return;
-}
-
-void extraTestCase_5()
-{
-    // Functions Tested
-    // 1. TableScan
-    // 2. Aggregate -- SUM
-    cout << "****In Extra Test Case 5****" << endl;
-
-    // Create TableScan
-    TableScan *input = new TableScan(*rm, "right1");
-
-    // Create Aggregate
-    Attribute aggAttr;
-    aggAttr.name = "right1.B";
-    aggAttr.type = TypeInt;
-    aggAttr.length = 4;
-
-    Attribute gAttr;
-    gAttr.name = "right1.C";
-    gAttr.type = TypeVarChar;
-    gAttr.length = 4;
-    Aggregate agg(input, aggAttr, gAttr, SUM);
-    vector<Attribute> test;
-    agg.getAttributes(test);
-    void *data = malloc(bufsize);
-    char *name = (char*) malloc(bufsize);
-    while(agg.getNextTuple(data) != QE_EOF)
-    {
-        int offset = 0;
-int length =0;
-        // Print right.C
-        cout << "right1.C ";
-        memcpy(&length,(char*) data,4);
-        offset += 4;
-        memcpy(name,(char*) data+offset, length);
-        name[length]='\0';
-        cout << name << endl;
-
-        offset += length;
-
-        // Print right.B
-        cout << "SUM(right1.B) " << *(float *)((char *)data + offset) << endl;
-        offset += sizeof(int);
-
-        memset(data, 0, bufsize);
-    }
-
+    
     free(data);
     return;
 }
 
 
-void createRight1Table()
-{
-    // Functions Tested;
-    // 1. Create Table
-    cout << "****Create Right1 Table****" << endl;
-
-    vector<Attribute> attrs;
-
-    Attribute attr;
-    attr.name = "B";
-    attr.type = TypeInt;
-    attr.length = 4;
-    attrs.push_back(attr);
-
-    attr.name = "C";
-    attr.type = TypeVarChar;
-    attr.length = (AttrLength)30;
-    attrs.push_back(attr);
-
-    attr.name = "D";
-    attr.type = TypeInt;
-    attr.length = 4;
-    attrs.push_back(attr);
-
-    RC rc = rm->createTable("right1", attrs);
-    assert(rc == success);
-    cout << "****Right1 Table Created!****" << endl;
-}
-
-void prepareRight1Tuple(int b, const int c_length, const string C, const int d, void *buffer) {
-	int offset = 0;
-
-	memcpy((char *) buffer + offset, &b, sizeof(int));
-	offset += sizeof(int);
-
-	memcpy((char *) buffer + offset, &c_length, sizeof(int));
-	offset += sizeof(int);
-	memcpy((char *) buffer + offset, C.c_str(), c_length);
-	offset += c_length;
-
-	memcpy((char *) buffer + offset, &d, sizeof(int));
-	offset += sizeof(int);
-}
-
-void populateRight1Table(vector<RID> &rids)
-{
-    // Functions Tested
-    // 1. InsertTuple
-    RID rid;
-    void *buf = malloc(bufsize);
-    memset(buf, 0, bufsize);
-
-    // Prepare the tuple data for insertion
-
-        prepareRight1Tuple(5, 4, "Mary", 10, buf);
-        RC rc = rm->insertTuple("right1", buf, rid);
-              assert(rc == success);
-              rids.push_back(rid);
-
-              memset(buf, 0, bufsize);
-        prepareRight1Tuple(5, 3, "Tom",9, buf);
-        rc = rm->insertTuple("right1", buf, rid);
-                      assert(rc == success);
-                      rids.push_back(rid);
-
-        memset(buf, 0, bufsize);
-        prepareRight1Tuple(7, 3, "Tom", 9, buf);
-        rc = rm->insertTuple("right1", buf, rid);
-                      assert(rc == success);
-                      rids.push_back(rid);
-
-        memset(buf, 0, bufsize);
-        prepareRight1Tuple(10, 3, "Tom", 9, buf);
-        rc = rm->insertTuple("right1", buf, rid);
-                      assert(rc == success);
-                      rids.push_back(rid);
-
-        memset(buf, 0, bufsize);
-        prepareRight1Tuple(8, 4, "Mary", 9, buf);
-        rc = rm->insertTuple("right1", buf, rid);
-                      assert(rc == success);
-                      rids.push_back(rid);
-
-
-
-
-
-
-    free(buf);
-}
-void testCase_11()
-{
-    // Functions Tested;
-    // 1. Filter -- TableScan as input, on Integer Attribute
-    cout << "****In Test Case 11****" << endl;
-
-    TableScan *ts = new TableScan(*rm, "right1");
-
-    // Set up condition
-    Condition cond;
-    cond.lhsAttr = "right1.B";
-    cond.op = LE_OP;
-    cond.bRhsIsAttr = false;
-    Value value;
-    value.type = TypeInt;
-    value.data = malloc(bufsize);
-    *(int *)value.data = 5000;//35;
-    cond.rhsValue = value;
-
-    // Create Filter
-    Filter filter(ts, cond);
-
-    // Go over the data through iterator
-    void *data = malloc(bufsize);
-    while(filter.getNextTuple(data) != QE_EOF)
-    {
-        int offset = 0;
-        // Print B
-        cout << "right1.B " << *(int *)((char *)data + offset) << endl;
-        offset += sizeof(int);
-
-
-        int length ;
-        memcpy(&length, (char *)data + offset, 4);
-        offset += 4;
-
-        // Print C
-        char *temp = (char *) malloc(length);
-        memcpy(temp, (char *)data + offset, length);
-        temp[length] = '\0';
-        cout << "right1.C " << (char*)temp << endl;
-
-        offset += length;
-
-        // Print right1.D
-        cout << "right1.D " << *(int *)((char *)data + offset) << endl;
-        offset += sizeof(float);
-
-        memset(data, 0, bufsize);
-    }
-
-    free(value.data);
-    free(data);
-    return;
-}
-
-
-
-int main()
+int main() 
 {
     // Create the left table, and populate the table
     vector<RID> leftRIDs;
     createLeftTable();
     populateLeftTable(leftRIDs);
-
+    
     // Create the right table, and populate the table
     vector<RID> rightRIDs;
     createRightTable();
     populateRightTable(rightRIDs);
-
-    vector<RID> right1RIDs;
-           createRight1Table();
-           populateRight1Table(right1RIDs);
-
+    
     // Create index for attribute B and C of the left table
     createIndexforLeftB(leftRIDs);
     createIndexforLeftC(leftRIDs);
-
+    
     // Create index for attribute B and C of the right table
     createIndexforRightB(rightRIDs);
-    createIndexforRightC(rightRIDs);
-
+    createIndexforRightC(rightRIDs);   
+   
     // Test Cases
-   testCase_11();
-  //  testCase_2();
-   //testCase_3();
-   //testCase_4();
-   //testCase_5();
-   /* testCase_6();
+    testCase_1();
+    testCase_2();
+    testCase_3();
+    testCase_4();
+    testCase_5();
+    testCase_6();
     testCase_7();
     testCase_8();
     testCase_9();
     testCase_10();
-*/
+
     // Extra Credit
-    // extraTestCase_1();
-    //extraTestCase_2();
+    extraTestCase_1();
+    extraTestCase_2();
     //extraTestCase_3();
-  // extraTestCase_4();
-   extraTestCase_5();
+    //extraTestCase_4();
+
     return 0;
 }
+
